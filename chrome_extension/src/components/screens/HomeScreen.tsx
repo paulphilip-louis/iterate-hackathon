@@ -3,11 +3,12 @@
 }
 import { FormData } from "@/types/index";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import TranscriptTab from "@/TranscriptTab";
+import TranscriptTab from "@/components/tabs/TranscriptTab";
 import HomeTab from "@/components/tabs/HomeTab";
+import { TodosTab } from "../tabs/TodosTab";
 
 export function Home({ formData: _formData }: { formData: FormData }) {
-  // formData available for future use
+  // Need to connect to websocket here and receive events
 
   return (
     <div className="flex h-screen flex-col">
@@ -16,6 +17,7 @@ export function Home({ formData: _formData }: { formData: FormData }) {
           <TabsList className="w-fit">
             <TabsTrigger value="Home">Home</TabsTrigger>
             <TabsTrigger value="Transcript">Transcript</TabsTrigger>
+            <TabsTrigger value="Todos">Todos</TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="Home" className="flex-1 overflow-hidden min-h-0">
@@ -26,6 +28,9 @@ export function Home({ formData: _formData }: { formData: FormData }) {
           className="flex-1 overflow-hidden min-h-0"
         >
           <TranscriptTab />
+        </TabsContent>
+        <TabsContent value="Todos" className="flex-1 overflow-hidden min-h-0">
+          <TodosTab />
         </TabsContent>
       </Tabs>
     </div>

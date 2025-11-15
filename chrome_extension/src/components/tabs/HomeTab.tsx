@@ -1,32 +1,201 @@
 import { Separator } from "@/components/ui/separator";
+import { useState } from "react";
+import { Button } from "../ui/button";
+import { Flag } from "lucide-react";
+import { useMeeting } from "@/hooks/useMeeting";
+
+/*
+Event types:
+  - TODO_CREATED -> list of todos (will not change)
+  - TICK_TODO -> id of the todo to tick
+  - NEW_SUGGESTED_QUESTION -> new suggested question
+*/
+
+interface Flag {
+  id: string;
+  isGreen: boolean;
+  message: string;
+}
+
+interface SuggestedQuestion {
+  id: string;
+  message: string;
+}
+
+interface Define {
+  id: string;
+  message: string;
+}
+
+function DefineList({ defines }: { defines: Define[] }) {
+  return (
+    <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
+      {defines.map((define) => (
+        <p key={define.id} className="animate-slide-in">
+          {define.message}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function SuggestedQuestionList({
+  questions,
+}: {
+  questions: SuggestedQuestion[];
+}) {
+  return (
+    <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
+      {questions.map((question) => (
+        <p key={question.id} className="animate-slide-in">
+          {question.message}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function FlagList({ flags }: { flags: Flag[] }) {
+  return (
+    <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
+      {flags.map((flag) => (
+        <div key={flag.id} className="flex items-center gap-2 animate-slide-in">
+          <Flag
+            className={`w-4 h-4 ${
+              flag.isGreen ? "text-green-500" : "text-red-500"
+            }`}
+          />
+          <p>{flag.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function HomeTab() {
+  const [defines, setDefines] = useState<Define[]>([]);
+  const [questions, setQuestions] = useState<SuggestedQuestion[]>([]);
+  const [flags, setFlags] = useState<Flag[]>([]);
+
+  // Event handlers that will be called when WebSocket events arrive
+  const handleNewSuggestedQuestion = (question: string) => {
+    const newQuestion: SuggestedQuestion = {
+      id: Date.now().toString(),
+      message: question,
+    };
+    // Add to top (stack behavior)
+    setQuestions((prev) => [newQuestion, ...prev]);
+  };
+
+  const handleGreenFlag = (message: string) => {
+    const newFlag: Flag = {
+      id: Date.now().toString(),
+      isGreen: true,
+      message,
+    };
+    // Add to top (stack behavior)
+    setFlags((prev) => [newFlag, ...prev]);
+  };
+
+  const handleRedFlag = (message: string) => {
+    const newFlag: Flag = {
+      id: Date.now().toString(),
+      isGreen: false,
+      message,
+    };
+    // Add to top (stack behavior)
+    setFlags((prev) => [newFlag, ...prev]);
+  };
+
+  const handleDefineTerm = (term: string, definition: string) => {
+    const newDefine: Define = {
+      id: Date.now().toString(),
+      message: `${term}: ${definition}`,
+    };
+    // Add to top (stack behavior)
+    setDefines((prev) => [newDefine, ...prev]);
+  };
+
+  // Connect to WebSocket and handle events
+  useMeeting({
+    onNewSuggestedQuestion: handleNewSuggestedQuestion,
+    onGreenFlag: handleGreenFlag,
+    onRedFlag: handleRedFlag,
+    onDefineTerm: handleDefineTerm,
+  });
+
+  // Simulate receiving events (for testing - remove later when WebSocket is connected)
+  const simulateSuggestedQuestion = () => {
+    handleNewSuggestedQuestion("What are your thoughts on remote work?");
+  };
+
+  const simulateGreenFlag = () => {
+    handleGreenFlag("Candidate shows strong communication skills");
+  };
+
+  const simulateRedFlag = () => {
+    handleRedFlag("Candidate seems unprepared for technical questions");
+  };
+
+  const simulateDefineTerm = () => {
+    handleDefineTerm(
+      "API",
+      "Application Programming Interface - a set of protocols for building software"
+    );
+  };
+
   return (
-    <div className="flex flex-col gap-4 h-full w-full p-4 overflow-hidden">
-      {/* TODO Card */}
-      <div className="flex-1 bg-white rounded-lg border border-gray-200 shadow-sm p-4 min-h-0 flex flex-col">
-        <h2 className="text-lg font-semibold mb-3">TODO</h2>
-        <Separator className="mb-3" />
-        <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
-          {/* TODO items will go here */}
-        </div>
+    <div className="h-full w-full overflow-y-auto">
+      <div className="p-4 flex gap-2 flex-wrap">
+        <Button onClick={simulateSuggestedQuestion} variant="outline" size="sm">
+          Simulate Suggested Question
+        </Button>
+        <Button
+          onClick={simulateGreenFlag}
+          variant="outline"
+          size="sm"
+          className="bg-green-50 border-green-300"
+        >
+          Simulate Green Flag
+        </Button>
+        <Button
+          onClick={simulateRedFlag}
+          variant="outline"
+          size="sm"
+          className="bg-red-50 border-red-300"
+        >
+          Simulate Red Flag
+        </Button>
+        <Button onClick={simulateDefineTerm} variant="outline" size="sm">
+          Simulate Define Term
+        </Button>
       </div>
-
-      {/* Suggested Questions Card */}
-      <div className="flex-1 bg-white rounded-lg border border-gray-200 shadow-sm p-4 min-h-0 flex flex-col">
-        <h2 className="text-lg font-semibold mb-3">Suggested Questions</h2>
-        <Separator className="mb-3" />
-        <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
-          {/* Suggested questions will go here */}
+      <div className="flex flex-col gap-4 w-full p-4">
+        {/* Suggested Questions Card */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col h-[200px]">
+          <h2 className="text-lg font-semibold mb-3">Suggested Questions</h2>
+          <Separator className="mb-3" />
+          <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
+            <SuggestedQuestionList questions={questions} />
+          </div>
         </div>
-      </div>
 
-      {/* Flags Card */}
-      <div className="flex-1 bg-white rounded-lg border border-gray-200 shadow-sm p-4 min-h-0 flex flex-col">
-        <h2 className="text-lg font-semibold mb-3">Flags</h2>
-        <Separator className="mb-3" />
-        <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
-          {/* Flags will go here */}
+        {/* Flags Card */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col h-[200px]">
+          <h2 className="text-lg font-semibold mb-3">Flags</h2>
+          <Separator className="mb-3" />
+          <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
+            <FlagList flags={flags} />
+          </div>
+        </div>
+
+        {/* Define Card */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col h-[200px]">
+          <h2 className="text-lg font-semibold mb-3">Define</h2>
+          <Separator className="mb-3" />
+          <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
+            <DefineList defines={defines} />
+          </div>
         </div>
       </div>
     </div>
