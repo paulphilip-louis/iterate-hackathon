@@ -10,16 +10,21 @@ export function Home({ formData: _formData }: { formData: FormData }) {
   // formData available for future use
 
   return (
-    <div className="flex w-full h-screen flex-col">
+    <div className="flex h-screen flex-col">
       <Tabs defaultValue="Home" className="flex flex-col h-full">
-        <TabsList className="w-full">
-          <TabsTrigger value="Home">Home</TabsTrigger>
-          <TabsTrigger value="Transcript">Transcript</TabsTrigger>
-        </TabsList>
-        <TabsContent value="Home" className="flex-1 overflow-hidden">
+        <div className="flex justify-center p-2">
+          <TabsList className="w-fit">
+            <TabsTrigger value="Home">Home</TabsTrigger>
+            <TabsTrigger value="Transcript">Transcript</TabsTrigger>
+          </TabsList>
+        </div>
+        <TabsContent value="Home" className="flex-1 overflow-hidden min-h-0">
           <HomeTab />
         </TabsContent>
-        <TabsContent value="Transcript" className="flex-1 overflow-hidden">
+        <TabsContent
+          value="Transcript"
+          className="flex-1 overflow-hidden min-h-0"
+        >
           <TranscriptTab />
         </TabsContent>
       </Tabs>

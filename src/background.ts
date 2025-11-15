@@ -44,7 +44,7 @@ chrome.runtime.onInstalled.addListener(() => {
 // Listen for messages from popup/sidepanel
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   console.log('Background received message:', request.action);
-  
+
   if (request.action === 'startCapture') {
     startCapture(request.tabId)
       .then((streamId) => sendResponse({ success: true, streamId }))
@@ -59,9 +59,9 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 
   if (request.action === 'getCaptureStatus') {
-    sendResponse({ 
+    sendResponse({
       isCapturing: currentStreamId !== null,
-      tabId: currentTabId 
+      tabId: currentTabId
     });
     return true;
   }
@@ -74,9 +74,9 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
           sendResponse({ tabs: [], error: chrome.runtime.lastError.message });
           return;
         }
-        
+
         try {
-          const videoCallTabs = tabs.filter(tab => 
+          const videoCallTabs = tabs.filter(tab =>
             tab.url && (
               tab.url.includes('meet.google.com') ||
               tab.url.includes('teams.microsoft.com') ||
@@ -115,42 +115,59 @@ async function startCapture(tabId: number) {
     // This is the preferred method for Manifest V3
     if (chrome.tabCapture && typeof chrome.tabCapture.getMediaStreamId === 'function') {
       try {
+        // Check if tab exists and is accessible
+        const tab = await chrome.tabs.get(tabId);
+        if (!tab || !tab.url) {
+          throw new Error('Tab not found or not accessible');
+        }
+
+        // Check if tab URL is capturable (must be http/https)
+        if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('about:')) {
+          throw new Error('Cannot capture system pages. Please use a regular web page.');
+        }
+
         streamId = await new Promise<string>((resolve, reject) => {
-          chrome.tabCapture.getMediaStreamId(
-            {
-              targetTabId: tabId,
-            },
-            (streamId) => {
-              if (chrome.runtime.lastError) {
-                const errorMsg = chrome.runtime.lastError.message;
-                console.error('getMediaStreamId error:', errorMsg);
-                reject(new Error(errorMsg || 'Failed to get stream ID'));
-              } else if (!streamId) {
-                reject(new Error('Failed to get stream ID'));
-              } else {
-                console.log('Successfully got stream ID via getMediaStreamId:', streamId);
-                resolve(streamId);
+          try {
+            chrome.tabCapture.getMediaStreamId(
+              {
+                targetTabId: tabId,
+              },
+              (streamId) => {
+                if (chrome.runtime.lastError) {
+                  const errorMsg = chrome.runtime.lastError.message;
+                  console.error('getMediaStreamId error:', errorMsg);
+                  reject(new Error(errorMsg || 'Failed to get stream ID'));
+                } else if (!streamId) {
+                  reject(new Error('Failed to get stream ID - no stream ID returned'));
+                } else {
+                  console.log('Successfully got stream ID via getMediaStreamId:', streamId);
+                  resolve(streamId);
+                }
               }
-            }
-          );
+            );
+          } catch (callError: any) {
+            console.error('Error calling getMediaStreamId:', callError);
+            reject(new Error(`Error calling getMediaStreamId: ${callError.message}`));
+          }
         });
       } catch (error: any) {
-        console.log('getMediaStreamId failed:', error?.message || error);
+        console.error('getMediaStreamId failed:', error?.message || error);
         // Continue to fallback method if available
       }
     } else {
       console.warn('chrome.tabCapture.getMediaStreamId is not available');
+      console.warn('Available chrome.tabCapture methods:', Object.keys(chrome.tabCapture || {}));
     }
 
     // Fallback: Use capture method only if getMediaStreamId is not available
     // Note: In Manifest V3, capture() may not be available, so we rely on getMediaStreamId
     if (!streamId && chrome.tabCapture && typeof chrome.tabCapture.capture === 'function') {
       console.log('Using capture method, switching to tab:', tabId);
-      
+
       try {
         // Switch to the target tab first
         await chrome.tabs.update(tabId, { active: true });
-        
+
         // Wait a bit longer to ensure tab is fully active and rendering
         await new Promise(resolve => setTimeout(resolve, 300));
 
@@ -179,16 +196,31 @@ async function startCapture(tabId: number) {
         throw new Error(`Failed to capture audio: ${captureError.message || 'Unknown error'}`);
       }
     }
-    
+
     if (!streamId) {
-      throw new Error('Failed to get stream ID. getMediaStreamId is required for Manifest V3.');
+      // Provide more helpful error message
+      const tab = await chrome.tabs.get(tabId).catch(() => null);
+      const tabUrl = tab?.url || 'unknown';
+
+      let errorMessage = 'Failed to get stream ID. ';
+      if (!chrome.tabCapture) {
+        errorMessage += 'tabCapture API is not available. ';
+      } else if (typeof chrome.tabCapture.getMediaStreamId !== 'function') {
+        errorMessage += 'getMediaStreamId is not available. ';
+      } else {
+        errorMessage += 'The tab may not be capturable. ';
+      }
+      errorMessage += `Tab URL: ${tabUrl}. `;
+      errorMessage += 'Make sure the tab is a regular web page (not chrome://) and is playing audio.';
+
+      throw new Error(errorMessage);
     }
 
     currentStreamId = streamId;
     currentTabId = tabId;
 
     console.log('Audio capture started for tab:', tabId, 'Stream ID:', streamId);
-    
+
     // Return the streamId so the popup/sidepanel can use it
     return streamId;
   } catch (error: any) {

@@ -26,6 +26,7 @@ export class AudioStream {
     return new Promise((resolve, reject) => {
       try {
         this.ws = new WebSocket(BACKEND_WS_URL);
+        console.log('Backend WebSocket URL:', BACKEND_WS_URL);
 
         this.ws.onopen = () => {
           console.log('✅ Connected to backend audio receiver');
@@ -39,7 +40,7 @@ export class AudioStream {
           try {
             if (typeof event.data === 'string') {
               const data = JSON.parse(event.data);
-              
+
               if (data.type === 'connected') {
                 console.log('Backend message:', data.message);
                 this.onStatusUpdate?.('Connected to server');
@@ -78,21 +79,21 @@ export class AudioStream {
     try {
       // Create AudioContext
       this.audioContext = new AudioContext({ sampleRate: 16000 });
-      
+
       // Create source from stream
       this.mediaStreamSource = this.audioContext.createMediaStreamSource(stream);
-      
+
       // Create script processor for audio chunks
       const bufferSize = 4096;
       this.processor = this.audioContext.createScriptProcessor(bufferSize, 1, 1);
-      
+
       this.processor.onaudioprocess = (event) => {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
           return;
         }
 
         const inputData = event.inputBuffer.getChannelData(0);
-        
+
         // Convert Float32Array to Int16Array (PCM format)
         const pcmData = new Int16Array(inputData.length);
         for (let i = 0; i < inputData.length; i++) {
@@ -104,7 +105,7 @@ export class AudioStream {
         // Send audio data to backend
         // Send as JSON with base64 encoded audio
         const base64Audio = this.arrayBufferToBase64(pcmData.buffer);
-        
+
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
           this.ws.send(JSON.stringify({
             type: 'audio',

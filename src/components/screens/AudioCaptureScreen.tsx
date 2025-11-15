@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { useTabs } from "@/hooks/useTabs";
 import { useAudioCapture } from "@/hooks/useAudioCapture";
 
-export function AudioCaptureTab() {
+interface AudioCaptureScreenProps {
+  onNext?: () => void;
+}
+
+export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
   const { tabs, selectedTabId, setSelectedTabId, error, loadTabs, getTabName } =
     useTabs();
   const {
@@ -81,6 +85,16 @@ export function AudioCaptureTab() {
                 className="w-full"
               >
                 {loading ? "Stopping..." : "Stop Capture"}
+              </Button>
+            )}
+            {onNext && (
+              <Button
+                onClick={onNext}
+                className="w-full"
+                variant="default"
+                disabled={!isCapturing}
+              >
+                Next
               </Button>
             )}
           </div>
