@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'http';
+import { processTranscriptChunk, resetState } from './transcriptProcessor.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -37,12 +38,15 @@ wss.on('connection', (clientWs, req) => {
   const clientId = connectionCount;
   console.log(`\n✅ Client #${clientId} connected from ${req.socket.remoteAddress}`);
   
+  // Réinitialiser l'état pour une nouvelle interview
+  resetState();
+  
   let clientMessageCount = 0;
   let clientAudioChunks = 0;
   const startTime = Date.now();
 
   // Handle incoming messages
-  clientWs.on('message', (data) => {
+  clientWs.on('message', async (data) => {
     messageCount++;
     clientMessageCount++;
     
@@ -66,6 +70,22 @@ wss.on('connection', (clientWs, req) => {
               message: 'Audio chunk received successfully',
               chunkNumber: clientAudioChunks
             }));
+          }
+        } else if (message.type === 'transcript_chunk') {
+          // ⚠️ NOUVEAU : Traitement des chunks de transcript pour détection de contradictions
+          const transcriptChunk = message.chunk;
+          const speaker = message.speaker; // 'candidate' ou 'recruiter'
+          
+          console.log(`📝 [Client #${clientId}] Transcript chunk received (speaker: ${speaker})`);
+          
+          // Ne traiter que les chunks du candidat
+          if (speaker === 'candidate') {
+            try {
+              // ⚠️ C'EST ICI QUE TOUT SE PASSE : Traitement et envoi automatique au frontend
+              await processTranscriptChunk(transcriptChunk, wss);
+            } catch (error) {
+              console.error(`❌ [Client #${clientId}] Error processing transcript chunk:`, error);
+            }
           }
         } else if (message.type === 'config') {
           console.log(`⚙️  [Client #${clientId}] Configuration received:`, message.config);
