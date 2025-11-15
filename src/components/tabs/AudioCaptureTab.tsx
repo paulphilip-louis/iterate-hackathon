@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { useTabs } from "@/hooks/useTabs";
 import { useAudioCapture } from "@/hooks/useAudioCapture";
 
-export function AudioCaptureScreen() {
-  const { tabs, selectedTabId, setSelectedTabId, error, loadTabs, getTabName } = useTabs();
+export function AudioCaptureTab() {
+  const { tabs, selectedTabId, setSelectedTabId, error, loadTabs, getTabName } =
+    useTabs();
   const {
     isCapturing,
     status,
@@ -30,9 +31,7 @@ export function AudioCaptureScreen() {
   return (
     <div className="h-full w-full flex items-center justify-center p-4">
       <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md space-y-6">
-        <h1 className="text-2xl font-bold text-center mb-4">
-          Audio Capture
-        </h1>
+        <h1 className="text-2xl font-bold text-center mb-4">Audio Capture</h1>
 
         <div className="space-y-4">
           <div>
@@ -91,7 +90,7 @@ export function AudioCaptureScreen() {
               className={`p-3 rounded text-sm ${
                 isCapturing
                   ? "bg-green-50 text-green-800 border border-green-200"
-                  : (status.includes("Error") || error)
+                  : status.includes("Error") || error
                   ? "bg-red-50 text-red-800 border border-red-200"
                   : "bg-blue-50 text-blue-800 border border-blue-200"
               }`}
@@ -132,4 +131,3 @@ export function AudioCaptureScreen() {
     </div>
   );
 }
-

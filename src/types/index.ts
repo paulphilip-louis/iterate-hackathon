@@ -9,4 +9,3 @@ export interface FormData {
   jobDescription: string;
   candidateLinkedInUrl: string;
 }
-
