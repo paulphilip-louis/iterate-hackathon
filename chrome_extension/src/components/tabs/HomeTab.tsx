@@ -3,15 +3,7 @@ import { useState } from "react";
 import { Button } from "../ui/button";
 import { Flag } from "lucide-react";
 import { useMeeting } from "@/hooks/useMeeting";
-import { useTranscripts } from "@/contexts/TranscriptContext";
 import { useAudioCapture } from "@/hooks/useAudioCapture";
-
-/*
-Event types:
-  - TODO_CREATED -> list of todos (will not change)
-  - TICK_TODO -> id of the todo to tick
-  - NEW_SUGGESTED_QUESTION -> new suggested question
-*/
 
 interface Flag {
   id: string;
@@ -80,21 +72,16 @@ export function HomeTab() {
   const [flags, setFlags] = useState<Flag[]>([]);
   const {
     isCapturing,
-    status,
     loading,
     audioLevel,
-    isTranscribing,
     stopCapture,
   } = useAudioCapture();
-  const { partialTranscript } = useTranscripts();
 
-  // Event handlers that will be called when WebSocket events arrive
   const handleNewSuggestedQuestion = (question: string) => {
     const newQuestion: SuggestedQuestion = {
       id: Date.now().toString(),
       message: question,
     };
-    // Add to top (stack behavior)
     setQuestions((prev) => [newQuestion, ...prev]);
   };
 
@@ -104,7 +91,6 @@ export function HomeTab() {
       isGreen: true,
       message,
     };
-    // Add to top (stack behavior)
     setFlags((prev) => [newFlag, ...prev]);
   };
 
@@ -114,7 +100,6 @@ export function HomeTab() {
       isGreen: false,
       message,
     };
-    // Add to top (stack behavior)
     setFlags((prev) => [newFlag, ...prev]);
   };
 
@@ -123,11 +108,9 @@ export function HomeTab() {
       id: Date.now().toString(),
       message: `${term}: ${definition}`,
     };
-    // Add to top (stack behavior)
     setDefines((prev) => [newDefine, ...prev]);
   };
 
-  // Connect to WebSocket and handle events
   useMeeting({
     onNewSuggestedQuestion: handleNewSuggestedQuestion,
     onGreenFlag: handleGreenFlag,
@@ -135,7 +118,6 @@ export function HomeTab() {
     onDefineTerm: handleDefineTerm,
   });
 
-  // Simulate receiving events (for testing - remove later when WebSocket is connected)
   const simulateSuggestedQuestion = () => {
     handleNewSuggestedQuestion("What are your thoughts on remote work?");
   };
@@ -164,12 +146,6 @@ export function HomeTab() {
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
               <h2 className="text-lg font-semibold">Recording</h2>
-              {isTranscribing && (
-                <>
-                  <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm text-blue-700">Transcribing...</span>
-                </>
-              )}
             </div>
             <Button
               onClick={stopCapture}
@@ -180,23 +156,15 @@ export function HomeTab() {
               {loading ? "Stopping..." : "Stop Capture"}
             </Button>
           </div>
-          {partialTranscript && (
-            <div className="p-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800 mb-2">
-              {partialTranscript}
-            </div>
-          )}
           <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
-            <div
-              className="bg-green-500 h-2 rounded-full transition-all duration-100"
-              style={{ width: `${Math.min(audioLevel * 2, 100)}%` }}
-            ></div>
+          <div
+            className="h-2 rounded-full transition-all duration-100"
+            style={{
+              width: `${Math.min(audioLevel * 2, 100)}%`,
+              backgroundColor: `hsl(${Math.max(0, 120 - audioLevel * 1.2)}, 100%, 50%)`,
+            }}
+          ></div>
           </div>
-          <p className="text-xs text-center text-gray-500">
-            Audio Level: {Math.round(audioLevel)}
-          </p>
-          {status && (
-            <p className="text-xs text-gray-600 mt-2">{status}</p>
-          )}
         </div>
       )}
         <Button onClick={simulateSuggestedQuestion} variant="outline" size="sm">
@@ -223,7 +191,6 @@ export function HomeTab() {
         </Button>
       </div>
       <div className="flex flex-col gap-4 w-full p-4">
-        {/* Suggested Questions Card */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col h-[200px]">
           <h2 className="text-lg font-semibold mb-3">Suggested Questions</h2>
           <Separator className="mb-3" />
@@ -232,7 +199,6 @@ export function HomeTab() {
           </div>
         </div>
 
-        {/* Flags Card */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col h-[200px]">
           <h2 className="text-lg font-semibold mb-3">Flags</h2>
           <Separator className="mb-3" />
@@ -241,7 +207,6 @@ export function HomeTab() {
           </div>
         </div>
 
-        {/* Define Card */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col h-[200px]">
           <h2 className="text-lg font-semibold mb-3">Define</h2>
           <Separator className="mb-3" />
