@@ -78,8 +78,15 @@ export function HomeTab() {
   const [defines, setDefines] = useState<Define[]>([]);
   const [questions, setQuestions] = useState<SuggestedQuestion[]>([]);
   const [flags, setFlags] = useState<Flag[]>([]);
-  const { isCapturing, isTranscribing, loading, audioLevel, stopCapture } = useAudioCapture();
-  // const { partialTranscript: t } = useTranscripts();
+  const {
+    isCapturing,
+    status,
+    loading,
+    audioLevel,
+    isTranscribing,
+    stopCapture,
+  } = useAudioCapture();
+  const { partialTranscript } = useTranscripts();
 
   // Event handlers that will be called when WebSocket events arrive
   const handleNewSuggestedQuestion = (question: string) => {
