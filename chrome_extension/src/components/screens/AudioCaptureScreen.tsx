@@ -62,15 +62,15 @@ export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
   };
 
   return (
-<div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-neutral-50 to-neutral-200 p-6">
+<div className="min-h-0 h-full w-full flex items-center justify-center bg-gradient-to-br from-neutral-50 to-neutral-200 p-6">
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.5 }}
     className="w-full max-w-md"
   >
-    <Card className="rounded-2xl shadow-xl border border-neutral-100 bg-white/80 backdrop-blur p-8 pb-6">
-      <CardContent className="flex flex-col space-y-6 p-0">
+    <Card className="min-h-0 rounded-2xl shadow-xl border border-neutral-100 bg-white/80 backdrop-blur p-8 pb-6">
+      <CardContent className="min-h-0 flex flex-col space-y-6 p-0">
 
         <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 text-center">
           Few steps before you start
@@ -79,8 +79,7 @@ export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
           Manage microphone access and select a meeting tab.
         </p>
 
-        {/* Microphone Permission */}
-        <div className="p-4 rounded-lg border bg-white/50 backdrop-blur">
+        <div className="min-h-0 p-4 rounded-lg border bg-white/50 backdrop-blur">
           <Label className="mb-3 block text-sm font-medium">Microphone Permission</Label>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
@@ -125,8 +124,7 @@ export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
           </p>
         </div>
 
-        {/* Tabs */}
-        <div className="space-y-2">
+        <div className="min-h-0 space-y-2">
           <Label className="text-sm font-medium">Select Video Call Tab</Label>
           {tabs.length === 0 ? (
             <div className="text-sm text-gray-500">
@@ -152,7 +150,7 @@ export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
         </div>
 
         {/* Start / Stop */}
-        <div>
+        <div className="min-h-0">
           {!isCapturing ? (
             <Button
               onClick={handleStartCapture}
@@ -178,7 +176,6 @@ export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
           )}
         </div>
 
-        {/* Status */}
         {(status || error) && (
           <div
             className={`
