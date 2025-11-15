@@ -8,11 +8,9 @@ import HomeTab from "@/components/tabs/HomeTab";
 import { TodosTab } from "../tabs/TodosTab";
 
 export function Home({ formData: _formData }: { formData: FormData }) {
-  // Need to connect to websocket here and receive events
-
   return (
     <div className="flex h-screen flex-col">
-      <Tabs defaultValue="Home" className="flex flex-col h-full">
+      <Tabs defaultValue="Home" className="flex flex-col h-full w-full">
         <div className="flex justify-center p-2">
           <TabsList className="w-fit">
             <TabsTrigger value="Home">Home</TabsTrigger>

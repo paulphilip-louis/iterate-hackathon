@@ -9,40 +9,33 @@ import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Initialize ElevenLabs client
 const elevenlabs = new ElevenLabsClient({
   apiKey: process.env.ELEVENLABS_API_KEY,
 });
 
-// Store active transcription requests and their associated WebSocket connections
-const activeRequests = new Map(); // requestId -> { ws, sessionId, chunks }
-const pollingRequests = new Map(); // requestId -> { ws, sessionId, pollInterval }
+const activeRequests = new Map();
+const pollingRequests = new Map();
 
-// Convert PCM buffer to WAV format
 function pcmToWav(pcmBuffer, sampleRate = 16000, channels = 1, bitsPerSample = 16) {
-  // pcmBuffer contains Int16 PCM data (2 bytes per sample)
-  const dataLength = pcmBuffer.length; // Length in bytes
-  const headerLength = 44; // WAV header is 44 bytes
-  const fileSize = headerLength + dataLength - 8; // File size - 8 bytes
+  const dataLength = pcmBuffer.length;
+  const headerLength = 44;
+  const fileSize = headerLength + dataLength - 8;
   
   const buffer = Buffer.alloc(headerLength + dataLength);
   
-  // WAV header
   buffer.write('RIFF', 0);
-  buffer.writeUInt32LE(fileSize, 4); // File size - 8
+  buffer.writeUInt32LE(fileSize, 4);
   buffer.write('WAVE', 8);
   buffer.write('fmt ', 12);
-  buffer.writeUInt32LE(16, 16); // Subchunk1Size (PCM format chunk size)
-  buffer.writeUInt16LE(1, 20); // AudioFormat (1 = PCM)
-  buffer.writeUInt16LE(channels, 22); // NumChannels
-  buffer.writeUInt32LE(sampleRate, 24); // SampleRate
-  buffer.writeUInt32LE(sampleRate * channels * bitsPerSample / 8, 28); // ByteRate
-  buffer.writeUInt16LE(channels * bitsPerSample / 8, 32); // BlockAlign
-  buffer.writeUInt16LE(bitsPerSample, 34); // BitsPerSample
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(channels, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * channels * bitsPerSample / 8, 28);
+  buffer.writeUInt16LE(channels * bitsPerSample / 8, 32);
+  buffer.writeUInt16LE(bitsPerSample, 34);
   buffer.write('data', 36);
-  buffer.writeUInt32LE(dataLength, 40); // Subchunk2Size (data chunk size)
-  
-  // Copy PCM data (already in Int16 little-endian format from client)
+  buffer.writeUInt32LE(dataLength, 40);
   pcmBuffer.copy(buffer, headerLength);
   
   return buffer;
@@ -53,20 +46,15 @@ function pollTranscriptionResult(requestId, ws, sessionId, audioSource) {
   // Create a polling state object
   const pollingData = { ws, sessionId, audioSource: audioSource || null, pollInterval: null };
   
-  // Store polling request immediately
   pollingRequests.set(requestId, pollingData);
   
-  // Create polling interval
   pollingData.pollInterval = setInterval(async () => {
     try {
-      // Check if request is still active
       if (!pollingRequests.has(requestId)) {
         clearInterval(pollingData.pollInterval);
         return;
       }
 
-      // Poll ElevenLabs API for transcription result
-      // Use direct API call since SDK might not have getById method
       const response = await fetch(
         `https://api.elevenlabs.io/v1/speech-to-text/${requestId}`,
         {
@@ -124,7 +112,6 @@ function pollTranscriptionResult(requestId, ws, sessionId, audioSource) {
           }));
         }
         
-        // Clean up
         clearInterval(pollingData.pollInterval);
         pollingRequests.delete(requestId);
       } else if (result.status === 'failed') {
@@ -132,38 +119,32 @@ function pollTranscriptionResult(requestId, ws, sessionId, audioSource) {
         clearInterval(pollingData.pollInterval);
         pollingRequests.delete(requestId);
       }
-      // If status is 'processing', continue polling
     } catch (error) {
       console.error(`❌ Error polling transcription ${requestId}:`, error);
-      // Continue polling unless it's a 404 (request not found)
       if (error.message === 'Request not found' || (error.statusCode === 404)) {
         clearInterval(pollingData.pollInterval);
         pollingRequests.delete(requestId);
       }
     }
-  }, 2000); // Poll every 2 seconds
+  }, 2000);
 }
 
-// Middleware
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGIN || '*', // remove on prod
+  origin: process.env.ALLOWED_ORIGIN || '*',
   credentials: true
 }));
-app.use(express.json({ limit: '50mb' })); // Increase limit for audio chunks
+app.use(express.json({ limit: '50mb' }));
 
-// Rate limiting for webhook endpoint
 const webhookLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: 'Too many webhook requests from this IP',
 });
 
-// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Audio receiver server is running' });
 });
 
-// Webhook endpoint to receive transcription results from ElevenLabs
 app.post('/webhook/speech-to-text', webhookLimiter, async (req, res) => {
   try {
     console.log('📨 Webhook received:', req.body);
@@ -171,7 +152,6 @@ app.post('/webhook/speech-to-text', webhookLimiter, async (req, res) => {
     const signature = req.headers['elevenlabs-signature'];
     const payload = JSON.stringify(req.body);
     
-    // Verify webhook signature if WEBHOOK_SECRET is set
     if (process.env.WEBHOOK_SECRET) {
       try {
         await elevenlabs.webhooks.constructEvent(payload, signature, process.env.WEBHOOK_SECRET);
@@ -196,7 +176,6 @@ app.post('/webhook/speech-to-text', webhookLimiter, async (req, res) => {
       console.log(`   Text: ${transcription.text}`);
       
       if (requestData && requestData.ws) {
-        // Send transcription result to client via WebSocket
         requestData.ws.send(JSON.stringify({
           type: 'transcription_completed',
           requestId: request_id,
@@ -209,7 +188,6 @@ app.post('/webhook/speech-to-text', webhookLimiter, async (req, res) => {
           },
         }));
         
-        // Clean up
         activeRequests.delete(request_id);
       } else {
         console.warn(`⚠️ No active WebSocket connection found for request ${request_id}`);
@@ -226,13 +204,10 @@ app.post('/webhook/speech-to-text', webhookLimiter, async (req, res) => {
   }
 });
 
-// Create HTTP server
 const server = createServer(app);
 
-// Create WebSocket server
 const wss = new WebSocketServer({ server });
 
-// Endpoint to receive audio chunks and send to ElevenLabs STT API
 app.post('/speech-to-text/upload', async (req, res) => {
   try {
     if (!process.env.ELEVENLABS_API_KEY) {
@@ -253,58 +228,50 @@ app.post('/speech-to-text/upload', async (req, res) => {
     // Convert base64 audio data to Buffer (this is PCM Int16 data from client)
     const pcmBuffer = Buffer.from(audioData, 'base64');
     
-    // Convert PCM buffer to WAV format with proper headers
-    // The client sends Int16 PCM data, sample rate 16000, mono
     const wavBuffer = pcmToWav(pcmBuffer, 16000, 1, 16);
 
-    // Check if webhooks are enabled (optional, requires webhook configuration in ElevenLabs dashboard)
     const useWebhook = process.env.USE_WEBHOOK === 'true';
     const webhookUrl = process.env.WEBHOOK_URL || `http://localhost:${PORT}/webhook/speech-to-text`;
     
     const sourceLabel = audioSource ? ` (${audioSource})` : '';
     // console.log(`📤 Sending audio${sourceLabel} to ElevenLabs STT API (webhook: ${useWebhook ? webhookUrl : 'disabled'}), WAV buffer size: ${wavBuffer.length} bytes`);
     
-    // Build request options
     const requestOptions = {
       file: wavBuffer,
-      modelId: 'scribe_v1',
+      modelId: 'scribe_v2',
+      languageCode: 'en',
     };
 
-    // Only add webhook if enabled
     if (useWebhook) {
       requestOptions.webhook = true;
       requestOptions.webhookUrl = webhookUrl;
     }
 
-    // The SDK accepts Buffer, File, or Blob - pass WAV Buffer directly
     let result;
     try {
       result = await elevenlabs.speechToText.convert(requestOptions);
     } catch (error) {
-      // If webhook fails and webhook was enabled, retry without webhook (fallback to synchronous)
       if (useWebhook && error.statusCode === 400 && error.body?.detail?.status === 'no_webhooks_configured') {
         console.warn('⚠️ Webhooks not configured in ElevenLabs dashboard, using synchronous mode');
         result = await elevenlabs.speechToText.convert({
           file: wavBuffer,
-          modelId: 'scribe_v1',
+          modelId: 'scribe_v2',
+          languageCode: 'en',
         });
       } else {
         throw error;
       }
     }
 
-    // Get WebSocket connection from session - find active WebSocket for this session
     let ws = null;
     if (sessionId && wss) {
-      // Find WebSocket by sessionId in the WebSocket connections
       wss.clients.forEach((client) => {
-        if (client.sessionId === sessionId && client.readyState === 1) { // 1 = OPEN
+        if (client.sessionId === sessionId && client.readyState === 1) {
           ws = client;
         }
       });
     }
 
-    // Check if result contains transcription directly (synchronous response) or requestId (async with webhook)
     let actualRequestId = requestId || `req_${Date.now()}`;
     let responseMessage = 'Transcription processed';
 
@@ -332,6 +299,7 @@ app.post('/speech-to-text/upload', async (req, res) => {
       const sourceLabel = audioSource ? ` (${audioSource})` : '';
       console.log(`✅ Transcription completed synchronously${sourceLabel}`);
       console.log(`   Audio type: ${audioSource || 'unknown'}`);
+      console.log('transcriptionData: ', transcriptionData);
       console.log(`   Text: ${transcriptionData.text}`);
 
       // TODO: send websocket event to all 3 services
@@ -355,13 +323,11 @@ app.post('/speech-to-text/upload', async (req, res) => {
         }));
       }
     } else if (result.requestId) {
-      // Async response with requestId - either webhook or polling mode
       actualRequestId = result.requestId;
       responseMessage = useWebhook ? 'Transcription started (webhook mode)' : 'Transcription started (polling mode)';
       console.log(`✅ Transcription started: ${actualRequestId}`);
 
       if (useWebhook && ws) {
-        // Webhook mode - store request for later webhook callback
         activeRequests.set(actualRequestId, {
           ws,
           sessionId: sessionId || 'default',
@@ -414,7 +380,6 @@ wss.on('connection', (ws, req) => {
   const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   console.log(`🔌 WebSocket connected: ${sessionId}`);
   
-  // Store session ID in connection metadata
   ws.sessionId = sessionId;
   
   ws.on('message', (message) => {
@@ -422,7 +387,6 @@ wss.on('connection', (ws, req) => {
       const data = JSON.parse(message.toString());
       
       if (data.type === 'register_session') {
-        // Client is registering this session
         console.log(`📝 Session registered: ${sessionId}`);
         ws.send(JSON.stringify({
           type: 'session_registered',
@@ -436,13 +400,11 @@ wss.on('connection', (ws, req) => {
   
   ws.on('close', () => {
     console.log(`🔌 WebSocket disconnected: ${sessionId}`);
-    // Clean up any active requests for this session
     for (const [requestId, data] of activeRequests.entries()) {
       if (data.sessionId === sessionId) {
         activeRequests.delete(requestId);
       }
     }
-    // Clean up polling requests for this session
     for (const [requestId, data] of pollingRequests.entries()) {
       if (data.sessionId === sessionId) {
         if (data.pollInterval) {

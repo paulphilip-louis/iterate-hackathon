@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { Tab } from "@/types";
 
 export function useTabs() {
