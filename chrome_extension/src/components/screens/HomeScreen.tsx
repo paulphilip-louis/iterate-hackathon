@@ -11,16 +11,16 @@ export function Home({ formData: _formData }: { formData: FormData }) {
   const { isCapturing, loading, stopCapture } = useAudioCapture();
 
   return (
-    <div className="h-full w-full flex flex-col bg-gradient-to-br from-neutral-50 to-neutral-200 p-6">
+    <div className="min-h-0 h-full w-full flex flex-col bg-gradient-to-br from-neutral-50 to-neutral-200 p-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex-1 w-full mx-auto flex flex-col"
+        className="min-h-0 flex-1 w-full mx-auto flex flex-col"
       >
-        <div className="flex justify-center p-2">
+        <div className="min-h-0 flex justify-center p-2">
           <Tabs defaultValue="Home" className="flex flex-col w-full">
-            <div className="flex items-center justify-center gap-3 mb-2">
+            <div className="min-h-0 flex items-center justify-center gap-3 mb-2">
               <TabsList className="w-fit rounded-lg bg-white/50 backdrop-blur p-1 shadow-sm">
                 <TabsTrigger value="Home">Home</TabsTrigger>
                 <TabsTrigger value="Transcript">Transcript</TabsTrigger>

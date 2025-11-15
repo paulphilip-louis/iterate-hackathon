@@ -1,7 +1,7 @@
-import { useTranscripts } from "@/contexts/TranscriptContext";
-import { useEffect, useRef, useState } from "react";
+import { useTranscripts, TranscriptSource } from "@/contexts/TranscriptContext";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic } from "lucide-react";
+import { Mic, User, Monitor } from "lucide-react";
 
 function useTypingEffect(text: string, speed: number = 30) {
   const [displayedText, setDisplayedText] = useState("");
@@ -53,61 +53,85 @@ interface TranscriptItemProps {
     id: string;
     text: string;
     timestamp?: number;
+    source?: TranscriptSource;
   };
   isPartial?: boolean;
 }
 
 function TranscriptItem({ transcript, isPartial = false }: TranscriptItemProps) {
   const { displayedText, isTyping } = useTypingEffect(transcript.text, 20);
+  const source = transcript.source || 'tab';
+  const isRecruiter = source === 'microphone';
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className={`rounded-xl border p-4 ${
-        isPartial
-          ? "bg-blue-50/50 border-blue-200 shadow-sm"
-          : "bg-white/80 border-neutral-200 shadow-sm"
-      }`}
+      className={`flex gap-3 ${isRecruiter ? 'flex-row-reverse' : 'flex-row'}`}
     >
-      <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 mt-1">
-          {isPartial ? (
-            <div className="relative">
-              <Mic className="w-4 h-4 text-blue-500" />
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+      {/* Avatar */}
+      <div className="flex-shrink-0">
+        {isPartial ? (
+          <div className="relative">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+              isRecruiter ? 'bg-blue-500' : 'bg-green-500'
+            }`}>
+              {isRecruiter ? (
+                <User className="w-4 h-4 text-white" />
+              ) : (
+                <Monitor className="w-4 h-4 text-white" />
+              )}
             </div>
-          ) : (
-            <div className="w-4 h-4 rounded-full bg-neutral-300" />
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <span
-              className={`text-xs font-medium ${
-                isPartial ? "text-blue-600" : "text-neutral-500"
-              }`}
-            >
-              {transcript.timestamp
-                ? new Date(transcript.timestamp).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  })
-                : "Now"}
-            </span>
-            {isPartial && (
-              <span className="text-xs text-blue-500 font-medium">
-                Live...
-              </span>
+            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse border-2 border-white" />
+          </div>
+        ) : (
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+            isRecruiter ? 'bg-blue-500' : 'bg-green-500'
+          }`}>
+            {isRecruiter ? (
+              <User className="w-4 h-4 text-white" />
+            ) : (
+              <Monitor className="w-4 h-4 text-white" />
             )}
           </div>
-          <p
-            className={`text-sm leading-relaxed ${
-              isPartial ? "text-neutral-800" : "text-neutral-900"
-            }`}
-          >
+        )}
+      </div>
+
+      {/* Message bubble */}
+      <div className={`flex flex-col ${isRecruiter ? 'items-end' : 'items-start'} max-w-[75%]`}>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-medium text-neutral-600">
+            {isRecruiter ? 'Recruiter' : 'Applicant'}
+          </span>
+          <span className="text-xs text-neutral-400">
+            {transcript.timestamp
+              ? new Date(transcript.timestamp).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "Now"}
+          </span>
+          {isPartial && (
+            <span className="text-xs text-blue-500 font-medium">
+              Live...
+            </span>
+          )}
+        </div>
+        <div
+          className={`rounded-2xl px-4 py-2.5 shadow-sm ${
+            isPartial
+              ? isRecruiter
+                ? "bg-blue-50/50 border border-blue-200"
+                : "bg-green-50/50 border border-green-200"
+              : isRecruiter
+              ? "bg-blue-500 text-white"
+              : "bg-white border border-neutral-200 text-neutral-900"
+          }`}
+        >
+          <p className={`text-sm leading-relaxed ${
+            isRecruiter && !isPartial ? 'text-white' : 'text-neutral-900'
+          }`}>
             {displayedText}
             {isTyping && (
               <motion.span
@@ -117,7 +141,9 @@ function TranscriptItem({ transcript, isPartial = false }: TranscriptItemProps) 
                   repeat: Infinity,
                   repeatType: "reverse",
                 }}
-                className="inline-block w-0.5 h-4 bg-blue-500 ml-1 align-middle"
+                className={`inline-block w-0.5 h-4 ml-1 align-middle ${
+                  isRecruiter ? 'bg-white' : 'bg-blue-500'
+                }`}
               />
             )}
           </p>
@@ -135,26 +161,31 @@ export function TranscriptTab() {
   useEffect(() => {
     if (shouldAutoScroll && scrollContainerRef.current) {
       const container = scrollContainerRef.current;
-      const scrollToBottom = () => {
+      const scrollToTop = () => {
         container.scrollTo({
-          top: container.scrollHeight,
+          top: 0,
           behavior: "smooth",
         });
       };
 
-      const timeoutId = setTimeout(scrollToBottom, 100);
+      const timeoutId = setTimeout(scrollToTop, 100);
       return () => clearTimeout(timeoutId);
     }
   }, [committedTranscripts, partialTranscript, shouldAutoScroll]);
 
   const handleScroll = () => {
     if (scrollContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } =
-        scrollContainerRef.current;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-      setShouldAutoScroll(isNearBottom);
+      const { scrollTop } = scrollContainerRef.current;
+      const isNearTop = scrollTop < 100;
+      setShouldAutoScroll(isNearTop);
     }
   };
+
+  // Reverse transcripts to show newest first
+  const reversedTranscripts = useMemo(
+    () => [...committedTranscripts].reverse(),
+    [committedTranscripts]
+  );
 
   const hasContent = committedTranscripts.length > 0 || partialTranscript;
 
@@ -177,41 +208,44 @@ export function TranscriptTab() {
           </div>
         )}
 
-        <AnimatePresence>
-          {committedTranscripts.map((transcript) => (
-            <TranscriptItem key={transcript.id} transcript={transcript} />
-          ))}
-        </AnimatePresence>
-
+        {/* Partial transcript (newest) at top */}
         {partialTranscript && (
           <TranscriptItem
             transcript={{
               id: "partial",
               text: partialTranscript,
               timestamp: Date.now(),
+              source: 'tab', // Default to tab for partial transcripts
             }}
             isPartial={true}
           />
         )}
+
+        {/* Committed transcripts (newest first) */}
+        <AnimatePresence>
+          {reversedTranscripts.map((transcript) => (
+            <TranscriptItem key={transcript.id} transcript={transcript} />
+          ))}
+        </AnimatePresence>
 
         {/* Scroll indicator when not auto-scrolling */}
         {!shouldAutoScroll && hasContent && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="fixed bottom-20 right-8 z-10"
+            className="fixed top-20 right-8 z-10"
           >
             <button
               onClick={() => {
                 setShouldAutoScroll(true);
                 scrollContainerRef.current?.scrollTo({
-                  top: scrollContainerRef.current.scrollHeight,
+                  top: 0,
                   behavior: "smooth",
                 });
               }}
-              className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg shadow-lg hover:bg-blue-600 transition-colors"
+              className="px-4 py-2 bg-purple-300 text-white text-sm rounded-lg shadow-lg hover:bg-purple-400 transition-colors"
             >
-              Scroll to bottom
+              Scroll to top
             </button>
           </motion.div>
         )}

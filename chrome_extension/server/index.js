@@ -369,6 +369,7 @@ app.post('/speech-to-text/upload', async (req, res) => {
     res.json({ 
       requestId: actualRequestId,
       message: responseMessage,
+      audioSource: audioSource || null,
     });
   } catch (error) {
     console.error('❌ Error in /speech-to-text/upload:', error);
