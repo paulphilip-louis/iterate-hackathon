@@ -4,9 +4,7 @@
 let globalAudioContext: AudioContext | null = null;
 let globalProcessor: ScriptProcessorNode | null = null;
 let globalStream: MediaStream | null = null;
-let globalCommitInterval: number | null = null;
 let globalAudioLevelInterval: number | null = null;
-let globalScribe: any = null; // ElevenLabs Scribe instance
 
 // Global callbacks that can be updated to always use current context
 let globalSetPartialTranscript: ((text: string) => void) | null = null;
@@ -44,33 +42,12 @@ export const globalCaptureManager = {
     return true;
   },
 
-  setCommitInterval(interval: number | null) {
-    globalCommitInterval = interval;
-  },
-
-  getCommitInterval(): number | null {
-    return globalCommitInterval;
-  },
-
   setAudioLevelInterval(interval: number | null) {
     globalAudioLevelInterval = interval;
   },
 
   getAudioLevelInterval(): number | null {
     return globalAudioLevelInterval;
-  },
-
-  setScribe(scribe: any) {
-    globalScribe = scribe;
-    // Update scribe callbacks to use global callbacks if they exist
-    if (scribe && globalSetPartialTranscript && globalAddCommittedTranscript) {
-      // The scribe instance might not support updating callbacks directly
-      // So we'll rely on the global callbacks being set before scribe is created
-    }
-  },
-
-  getScribe(): any {
-    return globalScribe;
   },
 
   setTranscriptCallbacks(
@@ -90,12 +67,6 @@ export const globalCaptureManager = {
   },
 
   stop() {
-    // Stop commit interval
-    if (globalCommitInterval) {
-      clearInterval(globalCommitInterval);
-      globalCommitInterval = null;
-    }
-
     // Stop audio level interval
     if (globalAudioLevelInterval) {
       clearInterval(globalAudioLevelInterval);
@@ -119,12 +90,6 @@ export const globalCaptureManager = {
       globalStream.getTracks().forEach(track => track.stop());
       globalStream = null;
     }
-
-    // Disconnect scribe
-    if (globalScribe && globalScribe.isConnected) {
-      globalScribe.disconnect();
-    }
-    globalScribe = null;
     
     // Clear transcript callbacks
     globalSetPartialTranscript = null;

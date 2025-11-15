@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { useScribe, AudioFormat } from "@elevenlabs/react";
 import { getAudioStream, stopAudioCapture, getAudioLevel, requestMicrophonePermission, checkMicrophonePermission } from "@/utils/audioCapture";
 import { useTranscripts } from "@/contexts/TranscriptContext";
 import { globalCaptureManager } from "@/utils/globalCaptureManager";
+
+const SERVER_URL = "http://localhost:3001";
+const WS_URL = "ws://localhost:3001";
 
 export function useAudioCapture() {
   const [isCapturing, setIsCapturing] = useState(false);
@@ -14,10 +16,13 @@ export function useAudioCapture() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const commitIntervalRef = useRef<number | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const audioChunksRef = useRef<Float32Array[]>([]);
+  const uploadIntervalRef = useRef<number | null>(null);
   const { setPartialTranscript, addCommittedTranscript } = useTranscripts();
 
-  // Update global callbacks whenever they change so scribe always uses current context
+  // Update global callbacks whenever they change
   useEffect(() => {
     globalCaptureManager.setTranscriptCallbacks(
       setPartialTranscript,
@@ -30,157 +35,6 @@ export function useAudioCapture() {
       }
     );
   }, [setPartialTranscript, addCommittedTranscript]);
-
-  // Initialize ElevenLabs Scribe with callbacks that use global functions
-  console.log("🎙️ [Scribe] Initializing Scribe instance...", {
-    modelId: "scribe_v2_realtime",
-    audioFormat: AudioFormat.PCM_16000,
-    sampleRate: 16000,
-  });
-  
-  const scribe = useScribe({
-    modelId: "scribe_v2_realtime",
-    audioFormat: AudioFormat.PCM_16000,
-    sampleRate: 16000,
-    
-    // Session lifecycle callbacks
-    onSessionStarted: () => {
-      console.log("🚀 [Scribe] Session started", {
-        timestamp: new Date().toISOString(),
-      });
-    },
-    
-    onConnect: () => {
-      console.log("🔌 [Scribe] Connected to ElevenLabs WebSocket", {
-        timestamp: new Date().toISOString(),
-        status: scribe.status,
-        isConnected: scribe.isConnected,
-      });
-    },
-    
-    onDisconnect: () => {
-      console.log("🔌 [Scribe] Disconnected from ElevenLabs WebSocket", {
-        timestamp: new Date().toISOString(),
-        status: scribe.status,
-        isConnected: scribe.isConnected,
-      });
-    },
-    
-    // Transcript callbacks
-    onPartialTranscript: (data) => {
-      console.log("📝 [Scribe] Partial transcript received:", {
-        text: data.text,
-        length: data.text?.length || 0,
-        timestamp: new Date().toISOString(),
-      });
-      
-      // Use global callback if available, otherwise use local
-      const setPartial = globalCaptureManager.getSetPartialTranscript();
-      if (setPartial) {
-        console.log("✅ [Scribe] Using global callback for partial transcript");
-        setPartial(data.text);
-      } else {
-        console.warn("⚠️ [Scribe] Global callback not available, using local callback");
-        setPartialTranscript(data.text);
-      }
-    },
-    
-    onCommittedTranscript: (data) => {
-      console.log("✅ [Scribe] Committed transcript received:", {
-        id: (data as any).id,
-        text: data.text,
-        length: data.text?.length || 0,
-        timestamp: new Date().toISOString(),
-      });
-      
-      // Use global callback if available, otherwise use local
-      const addCommitted = globalCaptureManager.getAddCommittedTranscript();
-      if (addCommitted) {
-        console.log("✅ [Scribe] Using global callback for committed transcript");
-        addCommitted({
-          id: (data as any).id || Date.now().toString(),
-          text: data.text,
-          timestamp: Date.now(),
-        });
-        // Clear partial when we get a committed transcript
-        const setPartial = globalCaptureManager.getSetPartialTranscript();
-        if (setPartial) {
-          setPartial("");
-        } else {
-          setPartialTranscript("");
-        }
-      } else {
-        console.warn("⚠️ [Scribe] Global callback not available, using local callback");
-        addCommittedTranscript({
-          id: (data as any).id || Date.now().toString(),
-          text: data.text,
-          timestamp: Date.now(),
-        });
-        setPartialTranscript("");
-      }
-    },
-    
-    onCommittedTranscriptWithTimestamps: (data) => {
-      console.log("✅ [Scribe] Committed transcript with timestamps received:", {
-        text: data.text,
-        timestamps: data.timestamps,
-        wordCount: data.timestamps?.length || 0,
-        timestamp: new Date().toISOString(),
-      });
-      // We already handle this in onCommittedTranscript, but we log timestamps here
-    },
-    
-    // Error callbacks
-    onError: (error: Error | Event) => {
-      console.error("❌ [Scribe] General error occurred:", {
-        error,
-        errorType: error instanceof Error ? "Error" : "Event",
-        message: error instanceof Error ? error.message : "Unknown error",
-        stack: error instanceof Error ? error.stack : undefined,
-        timestamp: new Date().toISOString(),
-      });
-      setStatus(`Scribe error: ${error instanceof Error ? error.message : "Unknown error"}`);
-    },
-    
-    onAuthError: (data: { error: string }) => {
-      console.error("🔐 [Scribe] Authentication error:", {
-        error: data.error,
-        timestamp: new Date().toISOString(),
-      });
-      setStatus(`Authentication error: ${data.error}`);
-      setIsCapturing(false);
-    },
-    
-    onQuotaExceededError: (data: { error: string }) => {
-      console.error("💳 [Scribe] Quota exceeded error:", {
-        error: data.error,
-        timestamp: new Date().toISOString(),
-      });
-      setStatus(`Quota exceeded: ${data.error}`);
-      setIsCapturing(false);
-    },
-  });
-  
-  console.log("✅ [Scribe] Scribe instance created:", {
-    isConnected: scribe.isConnected,
-    status: scribe.status,
-    isTranscribing: scribe.isTranscribing,
-    error: scribe.error,
-    partialTranscript: scribe.partialTranscript,
-    committedTranscriptsCount: scribe.committedTranscripts?.length || 0,
-    timestamp: new Date().toISOString(),
-  });
-  
-  // Log status changes
-  useEffect(() => {
-    console.log("📊 [Scribe] Status changed:", {
-      status: scribe.status,
-      isConnected: scribe.isConnected,
-      isTranscribing: scribe.isTranscribing,
-      error: scribe.error,
-      timestamp: new Date().toISOString(),
-    });
-  }, [scribe.status, scribe.isConnected, scribe.isTranscribing, scribe.error]);
 
   useEffect(() => {
     checkCaptureStatus();
@@ -212,10 +66,136 @@ export function useAudioCapture() {
     }
   };
 
+  // Connect to WebSocket server for receiving transcription results
+  const connectWebSocket = (): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      try {
+        const ws = new WebSocket(WS_URL);
+        
+        ws.onopen = () => {
+          console.log("🔌 WebSocket connected");
+          // Register session
+          ws.send(JSON.stringify({ type: 'register_session' }));
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'session_registered') {
+              console.log("✅ Session registered:", data.sessionId);
+              sessionIdRef.current = data.sessionId;
+              resolve(data.sessionId);
+            } else if (data.type === 'transcription_completed') {
+              console.log("✅ Transcription completed:", data.transcription);
+              handleTranscriptionResult(data.transcription);
+            }
+          } catch (error) {
+            console.error("❌ Error parsing WebSocket message:", error);
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error("❌ WebSocket error:", error);
+          reject(new Error("Failed to connect to WebSocket server"));
+        };
+
+        ws.onclose = () => {
+          console.log("🔌 WebSocket disconnected");
+          wsRef.current = null;
+        };
+
+        wsRef.current = ws;
+      } catch (error: any) {
+        reject(new Error(`WebSocket connection failed: ${error.message}`));
+      }
+    });
+  };
+
+  const handleTranscriptionResult = (transcription: any) => {
+    const { text } = transcription;
+    
+    console.log("✅ Received transcription:", {
+      text,
+      language: transcription.language_code,
+      wordCount: transcription.words?.length || 0,
+    });
+    
+    // Add as committed transcript
+    const setCommitted = globalCaptureManager.getAddCommittedTranscript();
+    if (setCommitted) {
+      setCommitted({
+        id: Date.now().toString(),
+        text: text,
+        timestamp: Date.now(),
+      });
+    } else {
+      addCommittedTranscript({
+        id: Date.now().toString(),
+        text: text,
+        timestamp: Date.now(),
+      });
+    }
+    
+    // Clear partial transcript
+    const setPartial = globalCaptureManager.getSetPartialTranscript();
+    if (setPartial) {
+      setPartial("");
+    } else {
+      setPartialTranscript("");
+    }
+  };
+
+  // Upload audio chunk to server
+  const uploadAudioChunk = async (audioData: Float32Array) => {
+    try {
+      if (!sessionIdRef.current) {
+        console.warn("⚠️ No session ID available, skipping upload");
+        return;
+      }
+
+      // Convert Float32Array to Int16Array (PCM format)
+      const pcmData = new Int16Array(audioData.length);
+      for (let i = 0; i < audioData.length; i++) {
+        const s = Math.max(-1, Math.min(1, audioData[i]));
+        pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      }
+
+      // Convert to base64
+      const bytes = new Uint8Array(pcmData.buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64Audio = btoa(binary);
+
+      // Send to server
+      const response = await fetch(`${SERVER_URL}/speech-to-text/upload`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          audioData: base64Audio,
+          sessionId: sessionIdRef.current,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server returned ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("📤 Audio chunk uploaded:", result.requestId);
+    } catch (error: any) {
+      console.error("❌ Error uploading audio chunk:", error);
+    }
+  };
+
   useEffect(() => {
     // Sync with global capture state when component mounts
     const syncWithGlobalCapture = async () => {
-      // First check with background script
       const response = await chrome.runtime.sendMessage({
         action: "getCaptureStatus",
       });
@@ -224,68 +204,37 @@ export function useAudioCapture() {
         const globalStream = globalCaptureManager.getStream();
         const globalProcessor = globalCaptureManager.getProcessor();
         const globalAudioContext = globalCaptureManager.getAudioContext();
-        const globalCommitInterval = globalCaptureManager.getCommitInterval();
         
-      if (globalStream && globalProcessor && globalAudioContext) {
-        console.log("🔄 [Scribe] Component mounting, detected global capture...");
-        
-        // Check scribe state
-        const globalScribe = globalCaptureManager.getScribe();
-        console.log("📊 [Scribe] Global scribe state on mount:", {
-          hasInstance: !!globalScribe,
-          isConnected: globalScribe?.isConnected || false,
-          timestamp: new Date().toISOString(),
-        });
-        
-        // Reconnect to global resources
-        streamRef.current = globalStream;
-        processorRef.current = globalProcessor;
-        audioContextRef.current = globalAudioContext;
-        
-        console.log("🔗 [Scribe] Reconnected to global resources:", {
-          hasStream: !!streamRef.current,
-          hasProcessor: !!processorRef.current,
-          hasAudioContext: !!audioContextRef.current,
-        });
-        
-        if (globalCommitInterval) {
-          commitIntervalRef.current = globalCommitInterval;
-          console.log("⏱️ [Scribe] Reconnected to commit interval");
+        if (globalStream && globalProcessor && globalAudioContext) {
+          console.log("🔄 Component mounting, detected global capture...");
+          
+          // Reconnect to global resources
+          streamRef.current = globalStream;
+          processorRef.current = globalProcessor;
+          audioContextRef.current = globalAudioContext;
+          
+          // Start audio level monitoring
+          if (!audioLevelIntervalRef.current) {
+            audioLevelIntervalRef.current = window.setInterval(() => {
+              const level = getAudioLevel();
+              setAudioLevel(level);
+            }, 100);
+          }
+          
+          setIsCapturing(true);
+          setStatus("Capture is running globally");
         }
-        
-        // Start a new audio level monitoring interval for this component
-        // This updates the local state but doesn't interfere with global capture
-        // The analyser is stored in captureState from audioCapture.ts and persists globally
-        if (!audioLevelIntervalRef.current) {
-          console.log("📊 [Scribe] Starting audio level monitoring interval");
-          audioLevelIntervalRef.current = window.setInterval(() => {
-            const level = getAudioLevel();
-            setAudioLevel(level);
-          }, 100);
-        }
-        
-        setIsCapturing(true);
-        setStatus("Capture is running globally");
-        console.log("✅ [Scribe] Successfully synced with global capture state");
-      }
       }
     };
     
     syncWithGlobalCapture();
 
     return () => {
-      // Don't cleanup on unmount - let capture continue running globally
-      // Only clear local interval, but keep global resources alive
+      // Cleanup local intervals only
       if (audioLevelIntervalRef.current) {
         clearInterval(audioLevelIntervalRef.current);
         audioLevelIntervalRef.current = null;
       }
-      // Clear local refs but don't stop global resources
-      processorRef.current = null;
-      audioContextRef.current = null;
-      streamRef.current = null;
-      commitIntervalRef.current = null;
-      // Don't stop the global capture - it should continue running
     };
   }, []);
 
@@ -295,45 +244,22 @@ export function useAudioCapture() {
         action: "getCaptureStatus",
       });
       if (response && response.isCapturing && globalCaptureManager.isRunning()) {
-        console.log("🔄 [Scribe] Detected global capture running, reconnecting...");
+        console.log("🔄 Detected global capture running, reconnecting...");
         setIsCapturing(true);
         setStatus("Capture is running globally");
         
-        // Check scribe state
-        const globalScribe = globalCaptureManager.getScribe();
-        console.log("📊 [Scribe] Global scribe state:", {
-          hasInstance: !!globalScribe,
-          isConnected: globalScribe?.isConnected || false,
-          timestamp: new Date().toISOString(),
-        });
-        
-        // Reconnect to global resources
         const globalStream = globalCaptureManager.getStream();
         const globalProcessor = globalCaptureManager.getProcessor();
         const globalAudioContext = globalCaptureManager.getAudioContext();
-        
-        console.log("🔗 [Scribe] Reconnecting to global resources:", {
-          hasStream: !!globalStream,
-          hasProcessor: !!globalProcessor,
-          hasAudioContext: !!globalAudioContext,
-        });
         
         if (globalStream && globalProcessor && globalAudioContext) {
           streamRef.current = globalStream;
           processorRef.current = globalProcessor;
           audioContextRef.current = globalAudioContext;
-          console.log("✅ [Scribe] Successfully reconnected to global resources");
-        } else {
-          console.warn("⚠️ [Scribe] Some global resources missing:", {
-            stream: !!globalStream,
-            processor: !!globalProcessor,
-            audioContext: !!globalAudioContext,
-          });
         }
         
-        // Start monitoring audio levels if not already running
+        // Start monitoring audio levels
         if (!audioLevelIntervalRef.current) {
-          console.log("📊 [Scribe] Starting audio level monitoring interval");
           audioLevelIntervalRef.current = window.setInterval(() => {
             const level = getAudioLevel();
             setAudioLevel(level);
@@ -342,43 +268,6 @@ export function useAudioCapture() {
       }
     } catch (error) {
       console.error("Error checking capture status:", error);
-    }
-  };
-
-  const fetchToken = async (): Promise<string> => {
-    try {
-      const response = await fetch("http://localhost:3001/scribe-token");
-      
-      if (!response.ok) {
-        // Try to get error message from response
-        let errorMessage = `Server returned ${response.status}: ${response.statusText}`;
-        try {
-          const errorData = await response.json();
-          if (errorData.error) {
-            errorMessage = errorData.error;
-          }
-        } catch {
-          // If response isn't JSON, use status text
-        }
-        throw new Error(errorMessage);
-      }
-      
-      const data = await response.json();
-      
-      if (!data.token) {
-        throw new Error("No token received from server. Check server logs for details.");
-      }
-      
-      return data.token;
-    } catch (error: any) {
-      console.error("Error fetching token:", error);
-      
-      // Provide more helpful error messages
-      if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
-        throw new Error("Cannot connect to server. Make sure the server is running on http://localhost:3001");
-      }
-      
-      throw new Error(`Failed to fetch token: ${error.message}`);
     }
   };
 
@@ -393,6 +282,11 @@ export function useAudioCapture() {
         setLoading(false);
         return;
       }
+
+      // Connect to WebSocket first
+      setStatus("Connecting to transcription service...");
+      await connectWebSocket();
+      console.log("✅ WebSocket connected, session ID:", sessionIdRef.current);
 
       // Start tab capture
       const response = await chrome.runtime.sendMessage({
@@ -410,9 +304,7 @@ export function useAudioCapture() {
           streamRef.current = stream;
           globalCaptureManager.setStream(stream);
 
-          // Store scribe globally for persistence
-          // Make sure global callbacks are set before storing scribe
-          console.log("🔧 [Scribe] Setting up global callbacks...");
+          // Update global callbacks
           globalCaptureManager.setTranscriptCallbacks(
             setPartialTranscript,
             (transcript: any) => {
@@ -423,12 +315,6 @@ export function useAudioCapture() {
               });
             }
           );
-          console.log("💾 [Scribe] Storing Scribe instance globally...");
-          globalCaptureManager.setScribe(scribe);
-          console.log("✅ [Scribe] Scribe stored globally:", {
-            isConnected: scribe.isConnected,
-            hasGlobalCallbacks: !!globalCaptureManager.getSetPartialTranscript(),
-          });
 
           // Start monitoring audio levels
           const audioLevelInterval = window.setInterval(() => {
@@ -438,38 +324,7 @@ export function useAudioCapture() {
           audioLevelIntervalRef.current = audioLevelInterval;
           globalCaptureManager.setAudioLevelInterval(audioLevelInterval);
 
-          // Fetch token and connect to ElevenLabs
-          setStatus("Connecting to transcription service...");
-          console.log("🔑 [Scribe] Fetching authentication token...");
-          const token = await fetchToken();
-          console.log("✅ [Scribe] Token received, length:", token?.length || 0);
-
-          console.log("🔌 [Scribe] Connecting to ElevenLabs Scribe service...");
-          console.log("📊 [Scribe] Connection state before connect:", {
-            isConnected: scribe.isConnected,
-          });
-          
-          try {
-            await scribe.connect({
-              token,
-              // Don't pass microphone option - we're sending audio manually
-            });
-            
-            console.log("✅ [Scribe] Successfully connected to ElevenLabs!", {
-              isConnected: scribe.isConnected,
-              timestamp: new Date().toISOString(),
-            });
-            setStatus("Transcribing...");
-          } catch (connectError: any) {
-            console.error("❌ [Scribe] Connection failed:", {
-              error: connectError,
-              message: connectError?.message,
-              stack: connectError?.stack,
-            });
-            throw connectError;
-          }
-
-          // Process the captured stream and send audio chunks to ElevenLabs
+          // Process the captured stream and collect audio chunks
           const audioContext = new AudioContext({ sampleRate: 16000 });
           audioContextRef.current = audioContext;
           globalCaptureManager.setAudioContext(audioContext);
@@ -479,111 +334,38 @@ export function useAudioCapture() {
           processorRef.current = processor;
           globalCaptureManager.setProcessor(processor);
 
-          console.log("🎵 [Scribe] Setting up audio processing pipeline...", {
-            bufferSize: 4096,
-            sampleRate: 16000,
-            channels: 1,
-          });
+          console.log("🎵 Setting up audio processing pipeline...");
 
           let audioChunkCount = 0;
-          let lastLogTime = Date.now();
+          audioChunksRef.current = [];
 
           processor.onaudioprocess = (event) => {
-            // Use global scribe instance to ensure it works even after component unmounts
-            const scribeInstance = globalCaptureManager.getScribe();
-            if (!scribeInstance) {
-              console.warn("⚠️ [Scribe] No scribe instance available for audio processing");
-              return;
-            }
-            
-            if (!scribeInstance.isConnected) {
-              // Only log this occasionally to avoid spam
-              if (Date.now() - lastLogTime > 5000) {
-                console.warn("⚠️ [Scribe] Scribe not connected, skipping audio chunk");
-                lastLogTime = Date.now();
-              }
-              return;
-            }
-
             const inputData = event.inputBuffer.getChannelData(0);
-
-            // Convert Float32Array to Int16Array (PCM format)
-            const pcmData = new Int16Array(inputData.length);
-            for (let i = 0; i < inputData.length; i++) {
-              const s = Math.max(-1, Math.min(1, inputData[i]));
-              pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-            }
-
-            // Convert to base64 and send to ElevenLabs
-            const bytes = new Uint8Array(pcmData.buffer);
-            let binary = '';
-            for (let i = 0; i < bytes.byteLength; i++) {
-              binary += String.fromCharCode(bytes[i]);
-            }
-            const base64Audio = btoa(binary);
-
-            audioChunkCount++;
             
-            // Log periodically (every 100 chunks = ~every ~10 seconds at 4096 buffer size)
-            if (audioChunkCount % 100 === 0) {
-              console.log("📤 [Scribe] Sending audio chunk to ElevenLabs:", {
-                chunkNumber: audioChunkCount,
-                audioLength: base64Audio.length,
-                pcmLength: pcmData.length,
-                isConnected: scribeInstance.isConnected,
-                timestamp: new Date().toISOString(),
-              });
-            }
+            // Collect audio chunks
+            audioChunksRef.current.push(new Float32Array(inputData));
+            audioChunkCount++;
 
-            // Send audio chunk to ElevenLabs
-            try {
-              scribeInstance.sendAudio(base64Audio, {
-                sampleRate: 16000,
-              });
-            } catch (sendError: any) {
-              console.error("❌ [Scribe] Error sending audio chunk:", {
-                error: sendError,
-                message: sendError?.message,
-                chunkNumber: audioChunkCount,
-              });
+            // Periodically upload accumulated chunks (every 5 seconds worth of audio)
+            // At 16000 sample rate, 4096 samples = ~0.25 seconds
+            // So every 20 chunks = ~5 seconds
+            if (audioChunkCount % 20 === 0) {
+              const accumulated = new Float32Array(audioChunksRef.current.reduce((acc, chunk) => acc + chunk.length, 0));
+              let offset = 0;
+              for (const chunk of audioChunksRef.current) {
+                accumulated.set(chunk, offset);
+                offset += chunk.length;
+              }
+              
+              uploadAudioChunk(accumulated);
+              audioChunksRef.current = []; // Clear accumulated chunks
             }
           };
 
           source.connect(processor);
           processor.connect(audioContext.destination);
 
-          // Commit transcription every 25 seconds (recommended: 20-30 seconds)
-          console.log("⏱️ [Scribe] Starting commit interval (every 25 seconds)...");
-          let commitCount = 0;
-          const commitInterval = window.setInterval(() => {
-            const scribeInstance = globalCaptureManager.getScribe();
-            if (scribeInstance && scribeInstance.isConnected) {
-              commitCount++;
-              console.log("💾 [Scribe] Committing transcript segment:", {
-                commitNumber: commitCount,
-                timestamp: new Date().toISOString(),
-                isConnected: scribeInstance.isConnected,
-              });
-              try {
-                scribeInstance.commit();
-                console.log("✅ [Scribe] Commit successful");
-              } catch (commitError: any) {
-                console.error("❌ [Scribe] Commit failed:", {
-                  error: commitError,
-                  message: commitError?.message,
-                  commitNumber: commitCount,
-                });
-              }
-            } else {
-              console.warn("⚠️ [Scribe] Cannot commit - scribe not connected:", {
-                hasInstance: !!scribeInstance,
-                isConnected: scribeInstance?.isConnected || false,
-                commitNumber: commitCount,
-              });
-            }
-          }, 25000);
-          commitIntervalRef.current = commitInterval;
-          globalCaptureManager.setCommitInterval(commitInterval);
+          setStatus("Transcribing...");
 
         } catch (streamError: any) {
           console.error('Stream access or transcription failed:', streamError);
@@ -594,6 +376,7 @@ export function useAudioCapture() {
         setStatus(`Error: ${response?.error || "Failed to start capture"}`);
       }
     } catch (error: any) {
+      console.error("Error starting capture:", error);
       setStatus(`Error: ${error.message || "Failed to start capture"}`);
       setIsCapturing(false);
     } finally {
@@ -606,34 +389,28 @@ export function useAudioCapture() {
     setStatus("Stopping capture...");
 
     try {
-      console.log("🛑 [Scribe] Stopping capture...");
-      
-      // Get scribe instance before stopping
-      const scribeInstance = globalCaptureManager.getScribe();
-      console.log("📊 [Scribe] Scribe state before stop:", {
-        hasInstance: !!scribeInstance,
-        isConnected: scribeInstance?.isConnected || false,
-        timestamp: new Date().toISOString(),
-      });
+      console.log("🛑 Stopping capture...");
 
-      // Disconnect from ElevenLabs
-      if (scribeInstance && scribeInstance.isConnected) {
-        console.log("🔌 [Scribe] Disconnecting from ElevenLabs...");
-        try {
-          scribeInstance.disconnect();
-          console.log("✅ [Scribe] Successfully disconnected from ElevenLabs");
-        } catch (disconnectError: any) {
-          console.error("❌ [Scribe] Error during disconnect:", {
-            error: disconnectError,
-            message: disconnectError?.message,
-          });
+      // Upload any remaining audio chunks
+      if (audioChunksRef.current.length > 0) {
+        const accumulated = new Float32Array(audioChunksRef.current.reduce((acc, chunk) => acc + chunk.length, 0));
+        let offset = 0;
+        for (const chunk of audioChunksRef.current) {
+          accumulated.set(chunk, offset);
+          offset += chunk.length;
         }
-      } else {
-        console.log("ℹ️ [Scribe] Already disconnected, skipping disconnect");
+        await uploadAudioChunk(accumulated);
+        audioChunksRef.current = [];
       }
 
-      // Stop global capture (this stops everything)
-      console.log("🛑 [Scribe] Stopping global capture manager...");
+      // Close WebSocket connection
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      sessionIdRef.current = null;
+
+      // Stop global capture
       globalCaptureManager.stop();
 
       // Stop audio capture
@@ -644,11 +421,11 @@ export function useAudioCapture() {
       audioContextRef.current = null;
       streamRef.current = null;
       audioLevelIntervalRef.current = null;
-      commitIntervalRef.current = null;
+      uploadIntervalRef.current = null;
 
       setAudioLevel(0);
       
-      console.log("✅ [Scribe] Capture stopped successfully");
+      console.log("✅ Capture stopped successfully");
 
       // Notify background script
       const response = await chrome.runtime.sendMessage({
@@ -663,6 +440,7 @@ export function useAudioCapture() {
         setStatus("Capture stopped");
       }
     } catch (error: any) {
+      console.error("Error stopping capture:", error);
       setStatus(`Error: ${error.message || "Failed to stop capture"}`);
       setIsCapturing(false);
     } finally {
@@ -681,8 +459,8 @@ export function useAudioCapture() {
     requestMicrophonePermission: requestMicrophonePermissionHandler,
     checkMicrophonePermission: checkMicrophonePermissionStatus,
     setStatus,
-    isTranscribing: scribe.isTranscribing || scribe.status === "transcribing",
-    scribeStatus: scribe.status,
-    scribeError: scribe.error,
+    isTranscribing: isCapturing,
+    scribeStatus: isCapturing ? "transcribing" : "idle",
+    scribeError: null,
   };
 }
