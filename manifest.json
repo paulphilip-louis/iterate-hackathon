@@ -16,6 +16,7 @@
     "<all_urls>",
     "http://localhost:3001/*"
   ],
+  "action": {},
   "side_panel": {
     "default_path": "sidepanel.html"
   }
