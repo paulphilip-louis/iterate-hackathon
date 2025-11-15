@@ -33,10 +33,6 @@ export function FormScreen({ onSubmit }: FormScreenProps) {
   return (
     <div className="h-full w-full flex items-center justify-center p-4">
       <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md space-y-6">
-        <h1 className="text-2xl font-bold text-center mb-4">
-          Iterate Hackathon
-        </h1>
-
         <div className="space-y-4">
           <div>
             <Label className="mb-2">Company Values</Label>
