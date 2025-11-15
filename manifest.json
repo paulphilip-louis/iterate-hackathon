@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Iterate Hackathon",
+  "version": "1.0.0",
+  "description": "A simple Iterate Hackathon Chrome extension",
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
+
