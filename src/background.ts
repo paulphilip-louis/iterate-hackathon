@@ -1,3 +1,5 @@
+/// <reference types="chrome" />
+
 // Background service worker for audio capture
 
 let currentStreamId: string | null = null;
@@ -13,8 +15,27 @@ setInterval(() => {
   console.log('Service worker keep-alive');
 }, 20000); // Every 20 seconds
 
-// Listen for messages from popup
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+// Open side panel when extension icon is clicked
+if (chrome.action && chrome.action.onClicked) {
+  chrome.action.onClicked.addListener((tab) => {
+    if (chrome.sidePanel && chrome.sidePanel.open) {
+      chrome.sidePanel.open({ windowId: tab.windowId });
+    }
+  });
+}
+
+// Set side panel when extension is installed or enabled
+chrome.runtime.onInstalled.addListener(() => {
+  if (chrome.sidePanel && chrome.sidePanel.setOptions) {
+    chrome.sidePanel.setOptions({
+      path: "sidepanel.html",
+      enabled: true,
+    });
+  }
+});
+
+// Listen for messages from popup/sidepanel
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   console.log('Background received message:', request.action);
   
   if (request.action === 'startCapture') {
@@ -111,10 +132,6 @@ async function startCapture(tabId: number) {
     if (!streamId) {
       console.log('Using capture method, switching to tab:', tabId);
       
-      // Get current active tab to restore later if needed
-      const currentTabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      const previousActiveTab = currentTabs[0]?.id;
-      
       // Switch to the target tab first
       await chrome.tabs.update(tabId, { active: true });
       
@@ -153,7 +170,7 @@ async function startCapture(tabId: number) {
 
     console.log('Audio capture started for tab:', tabId, 'Stream ID:', streamId);
     
-    // Return the streamId so the popup can use it
+    // Return the streamId so the popup/sidepanel can use it
     return streamId;
   } catch (error: any) {
     console.error('Error starting capture:', error);
@@ -169,4 +186,3 @@ function stopCapture() {
   currentTabId = null;
   console.log('Audio capture stopped');
 }
-

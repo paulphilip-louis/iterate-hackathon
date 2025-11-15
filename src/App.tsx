@@ -1,21 +1,21 @@
-import { useState } from "react";
-import { FormScreen } from "@/components/screens/FormScreen";
-import { AudioCaptureScreen } from "@/components/screens/AudioCaptureScreen";
-import type { FormData } from "@/types";
+import { IterateForm, type FormData } from "@/components/IterateForm";
 
 function App() {
-  const [formData, setFormData] = useState<FormData | null>(null);
-
-  const handleFormSubmit = (data: FormData) => {
-    console.log("Form submitted:", data);
-    setFormData(data);
+  const handleSubmit = async (data: FormData) => {
+    console.log("Form data:", data);
+    // Handle form submission here
   };
 
-  if (!formData) {
-    return <FormScreen onSubmit={handleFormSubmit} />;
-  }
-
-  return <AudioCaptureScreen />;
+  return (
+    <div className="h-full w-full flex items-center justify-center">
+      <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
+        <h1 className="text-2xl font-bold text-center mb-4">
+          Iterate Hackathon
+        </h1>
+        <IterateForm onSubmit={handleSubmit} />
+      </div>
+    </div>
+  );
 }
 
 export default App;

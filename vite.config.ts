@@ -23,12 +23,13 @@ export default defineConfig({
           resolve(__dirname, 'manifest.json'),
           resolve(__dirname, 'dist/manifest.json')
         )
-        // Rename index.html to popup.html
+        // Rename index.html to sidepanel.html
         const indexHtmlPath = resolve(__dirname, 'dist/index.html')
-        const popupHtmlPath = resolve(__dirname, 'dist/popup.html')
+        const sidepanelHtmlPath = resolve(__dirname, 'dist/sidepanel.html')
         if (existsSync(indexHtmlPath)) {
-          renameSync(indexHtmlPath, popupHtmlPath)
+          renameSync(indexHtmlPath, sidepanelHtmlPath)
         }
+        // Background.js is already in root from build output
       },
     },
   ],
@@ -36,7 +37,7 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       input: {
-        popup: resolve(__dirname, 'index.html'),
+        sidepanel: resolve(__dirname, 'index.html'),
         background: resolve(__dirname, 'src/background.ts'),
       },
       output: {
@@ -46,7 +47,7 @@ export default defineConfig({
         chunkFileNames: 'assets/[name].js',
         assetFileNames: (assetInfo) => {
           if (assetInfo.name === 'index.html') {
-            return 'popup.html'
+            return 'sidepanel.html'
           }
           return 'assets/[name].[ext]'
         },

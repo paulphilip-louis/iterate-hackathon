@@ -3,10 +3,8 @@
   "name": "Iterate Hackathon",
   "version": "1.0.0",
   "description": "A simple Iterate Hackathon Chrome extension",
-  "action": {
-    "default_popup": "popup.html"
-  },
   "permissions": [
+    "sidePanel",
     "tabCapture",
     "tabs",
     "activeTab"
@@ -17,6 +15,9 @@
   "host_permissions": [
     "<all_urls>",
     "http://localhost:3001/*"
-  ]
+  ],
+  "action": {},
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  }
 }
-
