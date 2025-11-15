@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+dist-electron/
 
 # Environment variables
 .env
@@ -17,3 +18,4 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+node_modules/

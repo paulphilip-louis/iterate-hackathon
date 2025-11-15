@@ -30,7 +30,7 @@ export function buildCulturalFitSystemPrompt(companyValues?: CompanyCultureValue
   }
 
   // Ultra-compressed prompt
-  return `Evaluate cultural fit. ${companySection}Positive: ownership, accountability, curiosity, teamwork, humility, communication, growth, transparency (+1 to +5). Negative: blame-shift (-3), arrogance (-2), avoidance (-2), vagueness (-1), contradiction (-2), no-curiosity (-1), toxic (-4), excuses (-2), values-mismatch (-5). Red flags: hostile, no-responsibility, dishonest, extreme-arrogance (-10). Base: 50. Score 0-100. Labels: ≥75 High, 50-74 Moderate, 25-49 Low, <25 At Risk. Return JSON only: {"cultural_score":number,"trend":"+3","signals":[{"type":"positive|negative","msg":"text"}],"label":"High Fit|Moderate Fit|Low Fit|At Risk"}. No reasoning. No explanations. JSON only.`;
+  return `Evaluate cultural fit. ${companySection}Positive: ownership, accountability, curiosity, teamwork, humility, communication, growth, transparency (+1 to +5). Negative: blame-shift (-3), arrogance (-2), avoidance (-2), vagueness (-1), no-curiosity (-1), toxic (-4), excuses (-2), values-mismatch (-5). Red flags: hostile, no-responsibility, dishonest, extreme-arrogance (-10). Base: 50. Score 0-100. Labels: ≥75 High, 50-74 Moderate, 25-49 Low, <25 At Risk. Return JSON only: {"cultural_score":number,"trend":"+3","signals":[{"type":"positive|negative","msg":"text"}],"label":"High Fit|Moderate Fit|Low Fit|At Risk"}. No reasoning. No explanations. JSON only.`;
 }
 
 /**

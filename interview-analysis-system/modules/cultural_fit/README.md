@@ -30,7 +30,7 @@ The module accepts:
 ### 2. LLM Evaluation
 The LLM analyzes the transcript chunk for:
 - **Positive signals** (+1 to +5 each): ownership, accountability, curiosity, teamwork, humility, communication clarity, growth mindset, transparency
-- **Negative signals** (-1 to -8 each): blame shifting, arrogance, avoidance, vagueness, contradiction, lack of curiosity, toxic attitude, excuses, values mismatch
+- **Negative signals** (-1 to -8 each): blame shifting, arrogance, avoidance, vagueness, lack of curiosity, toxic attitude, excuses, values mismatch
 - **Red flags** (-10): severe indicators like hostile behavior or complete refusal of responsibility
 
 ### 3. Score Smoothing

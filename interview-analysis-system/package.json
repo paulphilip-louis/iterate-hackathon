@@ -3,11 +3,10 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite build --watch",
+    "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:cultural-fit": "npx tsx cultural_fit/test.ts",
-    "test:cultural-fit:real": "npx tsx cultural_fit/test-real-api.ts"
+    "test:contradiction": "npx tsx tests/contradiction_detection/contradictionTestRunner.ts"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
