@@ -7,10 +7,13 @@ import {
 } from "react";
 import { globalCaptureManager } from "@/utils/globalCaptureManager";
 
-interface Transcript {
+export type TranscriptSource = 'tab' | 'microphone';
+
+export interface Transcript {
   id: string;
   text: string;
   timestamp?: number;
+  source?: TranscriptSource;
 }
 
 interface TranscriptContextType {
@@ -32,6 +35,11 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
   >([]);
 
   const addCommittedTranscript = (transcript: Transcript) => {
+    // Skip empty strings
+    if (!transcript.text || transcript.text.trim().length === 0) {
+      console.log("⏭️ Skipping empty transcript");
+      return;
+    }
     console.log("➕ Adding committed transcript:", transcript);
     setCommittedTranscripts((prev) => {
       const updated = [...prev, transcript];
@@ -48,16 +56,26 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
 
   // Wrapper to log when partial transcript is set
   const setPartialTranscriptWithLog = (text: string) => {
+    // Only set non-empty partial transcripts, or clear if empty
+    if (!text || text.trim().length === 0) {
+      setPartialTranscript("");
+      return;
+    }
     console.log("📝 Setting partial transcript:", text);
     setPartialTranscript(text);
   };
 
   // Wrapper for adding committed transcript
   const addCommittedTranscriptWrapper = (transcript: Transcript) => {
+    // Skip empty strings
+    if (!transcript.text || transcript.text.trim().length === 0) {
+      return;
+    }
     addCommittedTranscript({
       id: transcript.id || Date.now().toString(),
       text: transcript.text,
       timestamp: transcript.timestamp || Date.now(),
+      source: transcript.source, // Preserve source
     });
   };
 

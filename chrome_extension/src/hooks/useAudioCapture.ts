@@ -34,6 +34,7 @@ export function useAudioCapture() {
           id: transcript.id || Date.now().toString(),
           text: transcript.text,
           timestamp: transcript.timestamp || Date.now(),
+          source: transcript.source, // Preserve source if available
         });
       }
     );
@@ -118,6 +119,19 @@ export function useAudioCapture() {
   const handleTranscriptionResult = (transcription: any, audioSource?: 'tab' | 'microphone') => {
     const { text } = transcription;
 
+    // Skip empty transcripts
+    if (!text || text.trim().length === 0) {
+      console.log(`⏭️ Skipping empty transcription from ${audioSource || 'unknown'}`);
+      // Clear partial transcript if it exists
+      const setPartial = globalCaptureManager.getSetPartialTranscript();
+      if (setPartial) {
+        setPartial("");
+      } else {
+        setPartialTranscript("");
+      }
+      return;
+    }
+
     // Log based on source
     if (audioSource) {
       console.log(`✅ Received transcription from ${audioSource}:`, {
@@ -135,19 +149,21 @@ export function useAudioCapture() {
       console.log("🎉 Finished transcription!!!");
     }
 
-    // Add as committed transcript
+    // Add as committed transcript with source
     const setCommitted = globalCaptureManager.getAddCommittedTranscript();
     if (setCommitted) {
       setCommitted({
         id: Date.now().toString(),
         text: text,
         timestamp: Date.now(),
+        source: audioSource, // Include source (tab or microphone)
       });
     } else {
       addCommittedTranscript({
         id: Date.now().toString(),
         text: text,
         timestamp: Date.now(),
+        source: audioSource, // Include source (tab or microphone)
       });
     }
 
@@ -342,6 +358,7 @@ export function useAudioCapture() {
               id: transcript.id || Date.now().toString(),
               text: transcript.text,
               timestamp: transcript.timestamp || Date.now(),
+              source: transcript.source, // Preserve source if available
             });
           }
         );
