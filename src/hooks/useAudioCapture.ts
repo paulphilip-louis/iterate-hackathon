@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { getAudioStream, stopAudioCapture, getAudioLevel } from "@/utils/audioCapture";
 import { AudioStream } from "@/utils/audioStream";
+import { audioStreamManager } from "@/utils/audioStreamManager";
 
 export function useAudioCapture() {
   const [isCapturing, setIsCapturing] = useState(false);
@@ -15,18 +16,24 @@ export function useAudioCapture() {
   }, []);
 
   useEffect(() => {
+    // Restore audio stream from global manager if it exists
+    const existingStream = audioStreamManager.getAudioStream();
+    if (existingStream) {
+      audioStreamRef.current = existingStream;
+      setIsCapturing(true);
+    }
+
+    // Only cleanup the interval on unmount, not the stream
     return () => {
+      // Only clear the local interval reference
+      // The global stream manager keeps the stream alive
       if (audioLevelIntervalRef.current) {
         clearInterval(audioLevelIntervalRef.current);
+        audioLevelIntervalRef.current = null;
       }
-      if (audioStreamRef.current) {
-        audioStreamRef.current.disconnect();
-      }
-      if (isCapturing) {
-        stopAudioCapture();
-      }
+      // Don't disconnect the stream - it's managed globally
     };
-  }, [isCapturing]);
+  }, []);
 
   const checkCaptureStatus = async () => {
     try {
@@ -50,6 +57,8 @@ export function useAudioCapture() {
       });
 
       audioStreamRef.current = audioStream;
+      // Store in global manager so it persists across component unmounts
+      audioStreamManager.setAudioStream(audioStream);
       await audioStream.connect(stream);
       setStatus("Streaming audio to server...");
     } catch (error: any) {
@@ -71,14 +80,16 @@ export function useAudioCapture() {
       if (response && response.success && response.streamId) {
         setIsCapturing(true);
         setStatus("Capturing audio from selected tab");
-        
+
         try {
           const stream = await getAudioStream(response.streamId);
-          
-          audioLevelIntervalRef.current = window.setInterval(() => {
+
+          const interval = window.setInterval(() => {
             const level = getAudioLevel();
             setAudioLevel(level);
           }, 100);
+          audioLevelIntervalRef.current = interval;
+          audioStreamManager.setAudioLevelInterval(interval);
 
           await startAudioStreaming(stream);
         } catch (streamError: any) {
@@ -100,17 +111,17 @@ export function useAudioCapture() {
     setStatus("Stopping capture...");
 
     try {
-      if (audioStreamRef.current) {
-        audioStreamRef.current.disconnect();
-        audioStreamRef.current = null;
-      }
-      
+      // Use global manager to disconnect
+      audioStreamManager.disconnect();
+      audioStreamRef.current = null;
+
       stopAudioCapture();
-      
+
       if (audioLevelIntervalRef.current) {
         clearInterval(audioLevelIntervalRef.current);
         audioLevelIntervalRef.current = null;
       }
+      audioStreamManager.clearAudioLevelInterval();
       setAudioLevel(0);
 
       const response = await chrome.runtime.sendMessage({
@@ -143,4 +154,3 @@ export function useAudioCapture() {
     setStatus,
   };
 }
-
