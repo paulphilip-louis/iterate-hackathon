@@ -1,9 +1,3 @@
-# iterate-hackathon
-
-## Chrome Extension with React, TypeScript, and Tailwind CSS
-
-A modern Chrome extension built with React, TypeScript, and Tailwind CSS.
-
 ### Tech Stack
 
 - **React 18** - UI library
@@ -28,6 +22,12 @@ iterate/
 ```
 
 ### Setup Instructions
+
+0. **Use the right node version**
+
+```
+nvm i && nvm use
+```
 
 1. **Install Dependencies**:
 
@@ -59,22 +59,9 @@ iterate/
    - Select the `dist/` folder (not the root folder)
    - The extension should now appear in your extensions list
 
-5. **Test the Extension**:
-   - Click the extension icon in the Chrome toolbar
-   - You should see the "Hello World" popup built with React
-   - Click the "Click Me" button to see an interactive message
-
 ### Development Workflow
 
 1. Make changes to files in the `src/` directory
 2. Run `npm run dev` to watch for changes and rebuild automatically
 3. Reload the extension in Chrome (click the reload icon on the extension card)
 4. Test your changes
-
-### Features
-
-- ⚛️ React components with TypeScript
-- 🎨 Tailwind CSS for styling
-- 🔥 Hot module replacement during development
-- 📦 Optimized production builds
-- 🛠️ Type-safe development experience
