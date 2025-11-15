@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # frontend:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.frontend
+  #   container_name: frontend
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - NODE_ENV=production
+  #   volumes:
+  #     - ./frontend:/app
+  #   networks:
+  #     - app-network
+  #   restart: always
+
+  # flags:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.flags
+  #   container_name: flags
+  #   ports:
+  #     - "3002:3002"
+  #   environment:
+  #     - NODE_ENV=production
+  #   volumes:
+  #     - ./flags:/app
+  #   networks:
+  #     - app-network
+  #   restart: always
+
+  # suggested:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.suggested
+  #   container_name: suggested
+  #   ports:
+  #     - "3003:3003"
+  #   environment:
+  #     - NODE_ENV=production
+  #   volumes:
+  #     - ./suggested:/app
+  #   networks:
+  #     - app-network
+  #   restart: always
+
+  pdf_engine:
+    build:
+      context: ./pdf_engine
+      dockerfile: Dockerfile
+    container_name: pdf_engine
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./pdf_engine:/app
+    networks:
+      - app-network
+    restart: always
+
+networks:
+  app-network:
+    driver: bridge
+

@@ -55,12 +55,12 @@ import os
 import base64
 from datetime import datetime
 from typing import Dict, Any, Optional
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 from scoring_engine import generate_score
 from output_generator import create_html_output
 
 
-def generate_scorecard(
+async def generate_scorecard(
     transcript_text: str,
     output_dir: str = "outputs",
     save_files: bool = True,
@@ -140,13 +140,13 @@ def generate_scorecard(
         # Step 4: Generate PDF
         pdf_generated = False
         try:
-            with sync_playwright() as p:
-                browser = p.chromium.launch()
-                page = browser.new_page()
-                page.set_content(html_output, wait_until='networkidle')
+            async with async_playwright() as p:
+                browser = await p.chromium.launch()
+                page = await browser.new_page()
+                await page.set_content(html_output, wait_until='networkidle')
                 
                 # Generate PDF bytes
-                pdf_bytes = page.pdf(
+                pdf_bytes = await page.pdf(
                     format='A4',
                     print_background=True,
                     margin={
@@ -156,7 +156,7 @@ def generate_scorecard(
                         'left': '15mm'
                     }
                 )
-                browser.close()
+                await browser.close()
                 pdf_generated = True
                 
                 # Save PDF to file if requested
@@ -230,7 +230,7 @@ def generate_scorecard(
         }
 
 
-def generate_scorecard_simple(transcript_text: str) -> Dict[str, Any]:
+async def generate_scorecard_simple(transcript_text: str) -> Dict[str, Any]:
     """
     Simplified version that returns only HTML and PDF bytes (no file saving).
     Perfect for API endpoints that stream responses directly.
@@ -251,7 +251,7 @@ def generate_scorecard_simple(transcript_text: str) -> Dict[str, Any]:
             'error': str or None
         }
     """
-    result = generate_scorecard(
+    result = await generate_scorecard(
         transcript_text=transcript_text,
         save_files=False,
         include_pdf_link_in_html=False
@@ -269,6 +269,8 @@ def generate_scorecard_simple(transcript_text: str) -> Dict[str, Any]:
 
 # Example usage and testing
 if __name__ == "__main__":
+    import asyncio
+    
     # Test with sample transcript
     sample_transcript = """
     Interviewer: Can you tell me about a complex problem you solved recently?
@@ -284,16 +286,19 @@ if __name__ == "__main__":
     to different audiences - technical and non-technical.
     """
     
-    print("Generating scorecard...")
-    result = generate_scorecard(sample_transcript)
+    async def test():
+        print("Generating scorecard...")
+        result = await generate_scorecard(sample_transcript)
+        
+        if result['success']:
+            print(f"✅ Success!")
+            print(f"   Timestamp: {result['timestamp']}")
+            print(f"   HTML saved: {result['html_path']}")
+            print(f"   PDF saved: {result['pdf_path']}")
+            print(f"   HTML length: {len(result['html_content'])} chars")
+            print(f"   PDF size: {len(result['pdf_bytes']) if result['pdf_bytes'] else 0} bytes")
+        else:
+            print(f"❌ Error: {result['error']}")
     
-    if result['success']:
-        print(f"✅ Success!")
-        print(f"   Timestamp: {result['timestamp']}")
-        print(f"   HTML saved: {result['html_path']}")
-        print(f"   PDF saved: {result['pdf_path']}")
-        print(f"   HTML length: {len(result['html_content'])} chars")
-        print(f"   PDF size: {len(result['pdf_bytes']) if result['pdf_bytes'] else 0} bytes")
-    else:
-        print(f"❌ Error: {result['error']}")
+    asyncio.run(test())
 

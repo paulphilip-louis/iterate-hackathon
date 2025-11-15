@@ -13,3 +13,4 @@
 /demos
 /samples
 .env
+.DS_Store

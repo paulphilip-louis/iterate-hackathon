@@ -129,7 +129,7 @@ def analyze_transcript_with_llm(transcript_text: str) -> Dict[str, Any]:
         
         # Call Anthropic API
         response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",  # Using Claude 3.5 Sonnet for best analysis
+            model="claude-sonnet-4-5",  # Using Claude 3.5 Sonnet for best analysis
             max_tokens=4096,
             temperature=0.3,  # Lower temperature for more consistent scoring
             system=system_instruction,
@@ -141,6 +141,19 @@ def analyze_transcript_with_llm(transcript_text: str) -> Dict[str, Any]:
         # Extract and parse JSON response
         content = response.content[0].text
         logger.debug(f"Raw LLM response content: {content[:500]}...")  # Log first 500 chars
+        
+        # Clean the content - remove markdown code blocks if present
+        content = content.strip()
+        if content.startswith("```json"):
+            # Remove ```json at the start
+            content = content[7:].strip()
+        elif content.startswith("```"):
+            # Remove ``` at the start
+            content = content[3:].strip()
+        
+        if content.endswith("```"):
+            # Remove ``` at the end
+            content = content[:-3].strip()
         
         try:
             result = json.loads(content)
