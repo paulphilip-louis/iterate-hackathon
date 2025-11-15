@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
-import { copyFileSync, renameSync, existsSync } from 'fs'
+import { copyFileSync, renameSync, existsSync, mkdirSync } from 'fs'
 import { fileURLToPath } from 'url'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -29,6 +29,19 @@ export default defineConfig({
         if (existsSync(indexHtmlPath)) {
           renameSync(indexHtmlPath, sidepanelHtmlPath)
         }
+        // Copy icons to dist
+        const iconsDir = resolve(__dirname, 'dist/icons')
+        if (!existsSync(iconsDir)) {
+          mkdirSync(iconsDir, { recursive: true })
+        }
+        const iconSizes = [16, 48, 128]
+        iconSizes.forEach(size => {
+          const iconPath = resolve(__dirname, `public/icons/icon-${size}.png`)
+          const distIconPath = resolve(__dirname, `dist/icons/icon-${size}.png`)
+          if (existsSync(iconPath)) {
+            copyFileSync(iconPath, distIconPath)
+          }
+        })
         // Background.js is already in root from build output
       },
     },
