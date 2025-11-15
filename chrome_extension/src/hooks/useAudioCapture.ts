@@ -25,7 +25,6 @@ export function useAudioCapture() {
   const uploadIntervalRef = useRef<number | null>(null);
   const { setPartialTranscript, addCommittedTranscript } = useTranscripts();
 
-  // Update global callbacks whenever they change
   useEffect(() => {
     globalCaptureManager.setTranscriptCallbacks(
       setPartialTranscript,
@@ -70,7 +69,6 @@ export function useAudioCapture() {
     }
   };
 
-  // Connect to WebSocket server for receiving transcription results
   const connectWebSocket = (): Promise<string> => {
     return new Promise((resolve, reject) => {
       try {
@@ -78,7 +76,6 @@ export function useAudioCapture() {
 
         ws.onopen = () => {
           console.log("🔌 WebSocket connected");
-          // Register session
           ws.send(JSON.stringify({ type: 'register_session' }));
         };
 
@@ -91,7 +88,7 @@ export function useAudioCapture() {
               sessionIdRef.current = data.sessionId;
               resolve(data.sessionId);
             } else if (data.type === 'transcription_completed') {
-              const audioSource = data.audioSource; // 'tab' or 'microphone'
+              const audioSource = data.audioSource;
               handleTranscriptionResult(data.transcription, audioSource);
             }
           } catch (error) {
@@ -119,10 +116,8 @@ export function useAudioCapture() {
   const handleTranscriptionResult = (transcription: any, audioSource?: 'tab' | 'microphone') => {
     const { text } = transcription;
 
-    // Skip empty transcripts
     if (!text || text.trim().length === 0) {
       console.log(`⏭️ Skipping empty transcription from ${audioSource || 'unknown'}`);
-      // Clear partial transcript if it exists
       const setPartial = globalCaptureManager.getSetPartialTranscript();
       if (setPartial) {
         setPartial("");
@@ -132,7 +127,6 @@ export function useAudioCapture() {
       return;
     }
 
-    // Log based on source
     if (audioSource) {
       console.log(`✅ Received transcription from ${audioSource}:`, {
         text,
@@ -149,7 +143,6 @@ export function useAudioCapture() {
       console.log("🎉 Finished transcription!!!");
     }
 
-    // Add as committed transcript with source
     const setCommitted = globalCaptureManager.getAddCommittedTranscript();
     if (setCommitted) {
       setCommitted({
@@ -176,7 +169,6 @@ export function useAudioCapture() {
     }
   };
 
-  // Upload audio chunk to server
   const uploadAudioChunk = async (audioData: Float32Array, audioSource: 'tab' | 'microphone') => {
     try {
       if (!sessionIdRef.current) {
@@ -184,14 +176,12 @@ export function useAudioCapture() {
         return;
       }
 
-      // Convert Float32Array to Int16Array (PCM format)
       const pcmData = new Int16Array(audioData.length);
       for (let i = 0; i < audioData.length; i++) {
         const s = Math.max(-1, Math.min(1, audioData[i]));
         pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
       }
 
-      // Convert to base64
       const bytes = new Uint8Array(pcmData.buffer);
       let binary = '';
       for (let i = 0; i < bytes.byteLength; i++) {
@@ -199,7 +189,6 @@ export function useAudioCapture() {
       }
       const base64Audio = btoa(binary);
 
-      // Send to server with audio source identifier
       const response = await fetch(`${SERVER_URL}/speech-to-text/upload`, {
         method: 'POST',
         headers: {
@@ -225,7 +214,6 @@ export function useAudioCapture() {
   };
 
   useEffect(() => {
-    // Sync with global capture state when component mounts
     const syncWithGlobalCapture = async () => {
       const response = await chrome.runtime.sendMessage({
         action: "getCaptureStatus",
@@ -239,12 +227,10 @@ export function useAudioCapture() {
         if (globalStream && globalProcessor && globalAudioContext) {
           console.log("🔄 Component mounting, detected global capture...");
 
-          // Reconnect to global resources
           streamRef.current = globalStream;
           processorRef.current = globalProcessor;
           audioContextRef.current = globalAudioContext;
 
-          // Start audio level monitoring
           if (!audioLevelIntervalRef.current) {
             audioLevelIntervalRef.current = window.setInterval(() => {
               const level = getAudioLevel();
@@ -261,7 +247,6 @@ export function useAudioCapture() {
     syncWithGlobalCapture();
 
     return () => {
-      // Cleanup local intervals only
       if (audioLevelIntervalRef.current) {
         clearInterval(audioLevelIntervalRef.current);
         audioLevelIntervalRef.current = null;
@@ -289,7 +274,6 @@ export function useAudioCapture() {
           audioContextRef.current = globalAudioContext;
         }
 
-        // Start monitoring audio levels
         if (!audioLevelIntervalRef.current) {
           audioLevelIntervalRef.current = window.setInterval(() => {
             const level = getAudioLevel();
@@ -307,26 +291,22 @@ export function useAudioCapture() {
     setStatus("Starting capture...");
 
     try {
-      // Always require microphone permission
       if (microphonePermission !== 'granted') {
         setStatus('Please grant microphone permission before starting capture.');
         setLoading(false);
         return;
       }
 
-      // Always require tabId
       if (!tabId) {
         setStatus('Please select a tab to capture.');
         setLoading(false);
         return;
       }
 
-      // Connect to WebSocket first
       setStatus("Connecting to transcription service...");
       await connectWebSocket();
       console.log("✅ WebSocket connected, session ID:", sessionIdRef.current);
 
-      // Always capture both tab and microphone audio
       setStatus("Starting tab capture...");
       const response = await chrome.runtime.sendMessage({
         action: "startCapture",
@@ -350,7 +330,6 @@ export function useAudioCapture() {
       setStatus("Capturing audio from tab and microphone");
 
       try {
-        // Update global callbacks
         globalCaptureManager.setTranscriptCallbacks(
           setPartialTranscript,
           (transcript: any) => {
@@ -363,7 +342,6 @@ export function useAudioCapture() {
           }
         );
 
-        // Start monitoring audio levels (using mixed stream for visualization)
         const mixedStream = mixAudioStreams(tabStream, micStream);
         streamRef.current = mixedStream;
         globalCaptureManager.setStream(mixedStream);
@@ -375,15 +353,25 @@ export function useAudioCapture() {
         audioLevelIntervalRef.current = audioLevelInterval;
         globalCaptureManager.setAudioLevelInterval(audioLevelInterval);
 
-        // Process both streams separately
         const audioContext = new AudioContext({ sampleRate: 16000 });
         audioContextRef.current = audioContext;
         globalCaptureManager.setAudioContext(audioContext);
 
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+          console.log("🔊 AudioContext resumed from suspended state");
+        }
+        console.log("🎵 AudioContext state:", audioContext.state);
+
         console.log("🎵 Setting up audio processing pipelines for tab and microphone...");
 
-        // Process tab audio
         const tabSource = audioContext.createMediaStreamSource(tabStream);
+        
+        const tabSplitter = audioContext.createGain();
+        tabSplitter.gain.value = 1.0;
+        
+        tabSplitter.connect(audioContext.destination);
+        
         const tabProcessor = audioContext.createScriptProcessor(4096, 1, 1);
         let tabChunkCount = 0;
         const tabChunks: Float32Array[] = [];
@@ -393,7 +381,6 @@ export function useAudioCapture() {
           tabChunks.push(new Float32Array(inputData));
           tabChunkCount++;
 
-          // Upload every 20 chunks (~5 seconds)
           if (tabChunkCount % 20 === 0) {
             const accumulated = new Float32Array(tabChunks.reduce((acc, chunk) => acc + chunk.length, 0));
             let offset = 0;
@@ -402,16 +389,21 @@ export function useAudioCapture() {
               offset += chunk.length;
             }
             uploadAudioChunk(accumulated, 'tab');
-            tabChunks.length = 0; // Clear accumulated chunks
+            tabChunks.length = 0;
           }
         };
 
-        tabSource.connect(tabProcessor);
-        tabProcessor.connect(audioContext.destination);
+        tabSource.connect(tabSplitter);
+        tabSplitter.connect(tabProcessor);
+        const tabProcessorGain = audioContext.createGain();
+        tabProcessorGain.gain.value = 0;
+        tabProcessor.connect(tabProcessorGain);
+        tabProcessorGain.connect(audioContext.destination);
 
-        // Process microphone audio
         const micSource = audioContext.createMediaStreamSource(micStream);
         const micProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+        const micGainNode = audioContext.createGain();
+        micGainNode.gain.value = 0;
         let micChunkCount = 0;
         const micChunks: Float32Array[] = [];
 
@@ -434,10 +426,10 @@ export function useAudioCapture() {
         };
 
         micSource.connect(micProcessor);
-        micProcessor.connect(audioContext.destination);
+        micProcessor.connect(micGainNode);
+        micGainNode.connect(audioContext.destination);
 
-        // Store processors for cleanup
-        processorRef.current = tabProcessor; // Store one for compatibility
+        processorRef.current = tabProcessor;
         globalCaptureManager.setProcessor(tabProcessor);
 
         setStatus("Transcribing...");
@@ -447,7 +439,6 @@ export function useAudioCapture() {
         setStatus(`Error: ${streamError.message || "Failed to start transcription"}`);
         setIsCapturing(false);
 
-        // Cleanup streams on error
         if (micStream) {
           micStream.getTracks().forEach(track => track.stop());
         }
@@ -471,35 +462,26 @@ export function useAudioCapture() {
     try {
       console.log("🛑 Stopping capture...");
 
-      // Note: Remaining chunks are handled separately for tab and microphone streams
-      // No need to upload mixed chunks here since we process streams separately
-
-      // Close WebSocket connection
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
       sessionIdRef.current = null;
 
-      // Stop global capture
       globalCaptureManager.stop();
 
-      // Stop audio capture
       stopAudioCapture();
 
-      // Stop microphone stream if active
       if (microphoneStreamRef.current) {
         microphoneStreamRef.current.getTracks().forEach(track => track.stop());
         microphoneStreamRef.current = null;
       }
 
-      // Stop tab stream if active
       if (tabStreamRef.current) {
         tabStreamRef.current.getTracks().forEach(track => track.stop());
         tabStreamRef.current = null;
       }
 
-      // Clear local refs
       processorRef.current = null;
       audioContextRef.current = null;
       streamRef.current = null;
@@ -510,7 +492,6 @@ export function useAudioCapture() {
 
       console.log("✅ Capture stopped successfully");
 
-      // Notify background script
       const response = await chrome.runtime.sendMessage({
         action: "stopCapture",
       });
