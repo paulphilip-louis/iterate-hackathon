@@ -13,7 +13,7 @@ let captureState: AudioCaptureState = {
 export async function getAudioStream(streamId: string): Promise<MediaStream> {
   try {
     console.log('Getting audio stream with streamId:', streamId);
-    
+
     const constraints: any = {
       audio: {
         mandatory: {
@@ -25,7 +25,7 @@ export async function getAudioStream(streamId: string): Promise<MediaStream> {
     };
 
     let stream: MediaStream;
-    
+
     // Try modern getUserMedia first
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       try {
@@ -138,11 +138,11 @@ export async function requestMicrophonePermission(): Promise<boolean> {
     });
 
     stream.getTracks().forEach(track => track.stop());
-    
+
     return true;
   } catch (error: any) {
     console.error('Error requesting microphone permission:', error);
-    
+
     if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
       throw new Error('Microphone permission denied. Please allow access and try again.');
     } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
@@ -150,7 +150,7 @@ export async function requestMicrophonePermission(): Promise<boolean> {
     } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
       throw new Error('Microphone is being used by another application. Please close it and try again.');
     }
-    
+
     throw new Error(`Failed to request microphone permission: ${error.message || error.name}`);
   }
 }
@@ -161,7 +161,7 @@ export async function checkMicrophonePermission(): Promise<'granted' | 'denied' 
       const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       return result.state;
     }
-    
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       stream.getTracks().forEach(track => track.stop());
@@ -175,5 +175,57 @@ export async function checkMicrophonePermission(): Promise<'granted' | 'denied' 
   } catch (error) {
     return 'prompt';
   }
+}
+
+/**
+ * Get microphone audio stream
+ */
+export async function getMicrophoneStream(): Promise<MediaStream> {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('getUserMedia is not supported');
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 16000,
+      },
+      video: false,
+    });
+
+    console.log('✅ Microphone stream obtained');
+    return stream;
+  } catch (error: any) {
+    console.error('Error getting microphone stream:', error);
+    throw error;
+  }
+}
+
+/**
+ * Mix two audio streams into one
+ */
+export function mixAudioStreams(stream1: MediaStream, stream2: MediaStream): MediaStream {
+  const audioContext = new AudioContext({ sampleRate: 16000 });
+  const destination = audioContext.createMediaStreamDestination();
+
+  // Create sources from both streams
+  const source1 = audioContext.createMediaStreamSource(stream1);
+  const source2 = audioContext.createMediaStreamSource(stream2);
+
+  // Create gain nodes to control volume (optional, can adjust if needed)
+  const gain1 = audioContext.createGain();
+  const gain2 = audioContext.createGain();
+
+  // Connect sources through gain nodes to destination
+  source1.connect(gain1);
+  source2.connect(gain2);
+  gain1.connect(destination);
+  gain2.connect(destination);
+
+  // Return the mixed stream
+  return destination.stream;
 }
 
