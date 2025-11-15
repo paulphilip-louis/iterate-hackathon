@@ -1,5 +1,3 @@
-// Utility functions for audio capture
-
 export interface AudioCaptureState {
   stream: MediaStream | null;
   audioContext: AudioContext | null;
@@ -16,8 +14,6 @@ export async function getAudioStream(streamId: string): Promise<MediaStream> {
   try {
     console.log('Getting audio stream with streamId:', streamId);
     
-    // In Chrome extensions, getUserMedia with chromeMediaSource should work
-    // but the constraint format is specific
     const constraints: any = {
       audio: {
         mandatory: {
@@ -124,5 +120,60 @@ export function getAudioLevel(): number {
     sum += dataArray[i];
   }
   return sum / bufferLength;
+}
+
+export async function requestMicrophonePermission(): Promise<boolean> {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('getUserMedia is not supported');
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: false,
+    });
+
+    stream.getTracks().forEach(track => track.stop());
+    
+    return true;
+  } catch (error: any) {
+    console.error('Error requesting microphone permission:', error);
+    
+    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+      throw new Error('Microphone permission denied. Please allow access and try again.');
+    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      throw new Error('No microphone found. Please connect a microphone and try again.');
+    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+      throw new Error('Microphone is being used by another application. Please close it and try again.');
+    }
+    
+    throw new Error(`Failed to request microphone permission: ${error.message || error.name}`);
+  }
+}
+
+export async function checkMicrophonePermission(): Promise<'granted' | 'denied' | 'prompt'> {
+  try {
+    if (navigator.permissions && navigator.permissions.query) {
+      const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      return result.state;
+    }
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      stream.getTracks().forEach(track => track.stop());
+      return 'granted';
+    } catch (error: any) {
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        return 'denied';
+      }
+      return 'prompt';
+    }
+  } catch (error) {
+    return 'prompt';
+  }
 }
 

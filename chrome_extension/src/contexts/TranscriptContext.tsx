@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { globalCaptureManager } from "@/utils/globalCaptureManager";
 
 interface Transcript {
   id: string;
@@ -40,6 +41,32 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
     console.log("📝 Setting partial transcript:", text);
     setPartialTranscript(text);
   };
+
+  // Wrapper for adding committed transcript
+  const addCommittedTranscriptWrapper = (transcript: Transcript) => {
+    addCommittedTranscript({
+      id: transcript.id || Date.now().toString(),
+      text: transcript.text,
+      timestamp: transcript.timestamp || Date.now(),
+    });
+  };
+
+  // Update global callbacks immediately when provider mounts
+  // and whenever context functions change
+  // This ensures scribe always uses the current context functions
+  useEffect(() => {
+    globalCaptureManager.setTranscriptCallbacks(
+      setPartialTranscriptWithLog,
+      addCommittedTranscriptWrapper
+    );
+    console.log("✅ Updated global transcript callbacks from TranscriptProvider", {
+      partialLength: partialTranscript.length,
+      committedCount: committedTranscripts.length,
+    });
+  });
+
+  // Also update on every render to ensure callbacks are always fresh
+  // This runs on every render but that's okay - it just updates references
 
   return (
     <TranscriptContext.Provider

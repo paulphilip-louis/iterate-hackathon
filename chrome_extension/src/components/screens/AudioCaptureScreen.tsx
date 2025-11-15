@@ -3,6 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useTabs } from "@/hooks/useTabs";
 import { useAudioCapture } from "@/hooks/useAudioCapture";
+import { useTranscripts } from "@/contexts/TranscriptContext";
 
 interface AudioCaptureScreenProps {
   onNext?: () => void;
@@ -17,9 +18,12 @@ export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
     loading,
     audioLevel,
     isTranscribing,
+    microphonePermission,
     startCapture,
     stopCapture,
+    requestMicrophonePermission,
   } = useAudioCapture();
+  const { partialTranscript } = useTranscripts();
 
   useEffect(() => {
     loadTabs();
@@ -38,6 +42,49 @@ export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
         <h1 className="text-2xl font-bold text-center mb-4">Audio Capture</h1>
 
         <div className="space-y-4">
+          {/* Microphone Permission Section */}
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
+            <Label className="mb-2 block">Microphone Permission:</Label>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                {microphonePermission === 'granted' && (
+                  <>
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm text-green-700 font-medium">Granted</span>
+                  </>
+                )}
+                {microphonePermission === 'denied' && (
+                  <>
+                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <span className="text-sm text-red-700 font-medium">Denied</span>
+                  </>
+                )}
+                {(microphonePermission === 'prompt' || microphonePermission === 'checking') && (
+                  <>
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                    <span className="text-sm text-yellow-700 font-medium">
+                      {microphonePermission === 'checking' ? 'Checking...' : 'Not Requested'}
+                    </span>
+                  </>
+                )}
+              </div>
+              {microphonePermission !== 'granted' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={requestMicrophonePermission}
+                  disabled={loading || microphonePermission === 'checking'}
+                  className="text-xs"
+                >
+                  {loading ? 'Requesting...' : 'Request Permission'}
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-gray-600 mt-1">
+              You must grant microphone permission before starting capture.
+            </p>
+          </div>
+
           <div>
             <Label className="mb-2">Select Video Call Tab:</Label>
             {tabs.length === 0 ? (
@@ -72,7 +119,7 @@ export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
             {!isCapturing ? (
               <Button
                 onClick={handleStartCapture}
-                disabled={loading || !selectedTabId || tabs.length === 0}
+                disabled={loading || !selectedTabId || tabs.length === 0 || microphonePermission !== 'granted'}
                 className="w-full"
               >
                 {loading ? "Starting..." : "Start Capture"}
@@ -125,6 +172,7 @@ export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
                     <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
                     <span className="text-sm font-medium text-blue-700">
                       Transcribing...
+                      {partialTranscript}
                     </span>
                   </>
                 )}
