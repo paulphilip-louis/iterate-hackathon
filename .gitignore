@@ -1,19 +1,6 @@
-# Dependencies
 node_modules/
-
-# Build output
 dist/
-
-# Environment variables
 .env
-.env.local
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
+server/.env
+server/node_modules/
+*.log

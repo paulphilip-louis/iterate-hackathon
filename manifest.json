@@ -3,14 +3,21 @@
   "name": "Iterate Hackathon",
   "version": "1.0.0",
   "description": "A simple Iterate Hackathon Chrome extension",
-  "permissions": ["sidePanel", "tabs"],
-  "host_permissions": ["https://meet.google.com/*"],
+  "permissions": [
+    "sidePanel",
+    "tabCapture",
+    "tabs",
+    "activeTab"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+    "<all_urls>",
+    "http://localhost:3001/*"
+  ],
   "action": {},
   "side_panel": {
     "default_path": "sidepanel.html"
-  },
-  "background": {
-    "service_worker": "background.js"
   }
 }
-
