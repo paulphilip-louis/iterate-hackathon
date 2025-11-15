@@ -89,13 +89,13 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.send_text("Status: Analyzing transcript with LLM...")
         
         # Generate scorecard using the scorecard_api
-        result = generate_scorecard(
+        result = await generate_scorecard(
             transcript_text=transcript_content,
             output_dir=HTML_OUTPUT_DIR,
             save_files=True,
             include_pdf_link_in_html=False
         )
-        
+
         if not result['success']:
             error_msg = f"ERROR|{result.get('error', 'Unknown error occurred')}"
             await websocket.send_text(error_msg)
