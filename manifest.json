@@ -5,6 +5,18 @@
   "description": "A simple Iterate Hackathon Chrome extension",
   "action": {
     "default_popup": "popup.html"
-  }
+  },
+  "permissions": [
+    "tabCapture",
+    "tabs",
+    "activeTab"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+    "<all_urls>",
+    "http://localhost:3001/*"
+  ]
 }
 
