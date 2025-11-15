@@ -16,7 +16,7 @@ export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
     status,
     loading,
     audioLevel,
-    audioStreamRef,
+    isTranscribing,
     startCapture,
     stopCapture,
   } = useAudioCapture();
@@ -120,11 +120,11 @@ export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
                 <span className="text-sm font-medium text-gray-700">
                   Recording...
                 </span>
-                {audioStreamRef.current?.connected && (
+                {isTranscribing && (
                   <>
                     <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
                     <span className="text-sm font-medium text-blue-700">
-                      Streaming...
+                      Transcribing...
                     </span>
                   </>
                 )}
