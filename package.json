@@ -5,9 +5,13 @@
   "scripts": {
     "dev": "vite build --watch",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:cultural-fit": "npx tsx cultural_fit/test.ts",
+    "test:cultural-fit:real": "npx tsx cultural_fit/test-real-api.ts"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
+    "groq-sdk": "^0.35.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
