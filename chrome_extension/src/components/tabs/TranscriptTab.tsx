@@ -1,52 +1,7 @@
 import { useTranscripts, TranscriptSource } from "@/contexts/TranscriptContext";
 import { useEffect, useRef, useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Mic, User, Monitor } from "lucide-react";
-
-function useTypingEffect(text: string, speed: number = 30) {
-  const [displayedText, setDisplayedText] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const previousTextRef = useRef("");
-
-  useEffect(() => {
-    if (!text) {
-      setDisplayedText("");
-      setIsTyping(false);
-      previousTextRef.current = "";
-      return;
-    }
-
-    if (text.length < displayedText.length) {
-      setDisplayedText(text);
-      previousTextRef.current = text;
-      return;
-    }
-
-    if (text === previousTextRef.current) {
-      return;
-    }
-
-    setIsTyping(true);
-    const currentLength = displayedText.length;
-    const targetLength = text.length;
-    let index = currentLength;
-
-    const interval = setInterval(() => {
-      if (index < targetLength) {
-        setDisplayedText(text.slice(0, index + 1));
-        index++;
-      } else {
-        setIsTyping(false);
-        previousTextRef.current = text;
-        clearInterval(interval);
-      }
-    }, speed);
-
-    return () => clearInterval(interval);
-  }, [text, speed, displayedText.length]);
-
-  return { displayedText, isTyping };
-}
 
 interface TranscriptItemProps {
   transcript: {
@@ -59,17 +14,11 @@ interface TranscriptItemProps {
 }
 
 function TranscriptItem({ transcript, isPartial = false }: TranscriptItemProps) {
-  const { displayedText, isTyping } = useTypingEffect(transcript.text, 20);
   const source = transcript.source || 'tab';
   const isRecruiter = source === 'microphone';
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className={`flex gap-3 ${isRecruiter ? 'flex-row-reverse' : 'flex-row'}`}
-    >
+    <div className={`flex gap-3 ${isRecruiter ? 'flex-row-reverse' : 'flex-row'}`}>
       {/* Avatar */}
       <div className="flex-shrink-0">
         {isPartial ? (
@@ -132,24 +81,11 @@ function TranscriptItem({ transcript, isPartial = false }: TranscriptItemProps) 
           <p className={`text-sm leading-relaxed ${
             isRecruiter && !isPartial ? 'text-white' : 'text-neutral-900'
           }`}>
-            {displayedText}
-            {isTyping && (
-              <motion.span
-                animate={{ opacity: [1, 0] }}
-                transition={{
-                  duration: 0.8,
-                  repeat: Infinity,
-                  repeatType: "reverse",
-                }}
-                className={`inline-block w-0.5 h-4 ml-1 align-middle ${
-                  isRecruiter ? 'bg-white' : 'bg-blue-500'
-                }`}
-              />
-            )}
+            {transcript.text}
           </p>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -222,11 +158,9 @@ export function TranscriptTab() {
         )}
 
         {/* Committed transcripts (newest first) */}
-        <AnimatePresence>
-          {reversedTranscripts.map((transcript) => (
-            <TranscriptItem key={transcript.id} transcript={transcript} />
-          ))}
-        </AnimatePresence>
+        {reversedTranscripts.map((transcript) => (
+          <TranscriptItem key={transcript.id} transcript={transcript} />
+        ))}
 
         {/* Scroll indicator when not auto-scrolling */}
         {!shouldAutoScroll && hasContent && (
