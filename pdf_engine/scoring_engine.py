@@ -1,13 +1,13 @@
 """
 Scoring engine for interview transcripts
 Implements the 7-criteria scoring rubric with 0/2/4 marking system
-Uses OpenAI LLM for candidate assessment
+Uses Anthropic Claude LLM for candidate assessment
 """
 from typing import Dict, Any, List
 import json
 import os
 import logging
-from openai import OpenAI
+from anthropic import Anthropic
 from dotenv import load_dotenv
 
 # Set up logging
@@ -17,17 +17,17 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# Initialize OpenAI client
-def get_openai_client() -> OpenAI:
+# Initialize Anthropic client
+def get_anthropic_client() -> Anthropic:
     """
-    Initialize and return OpenAI client
+    Initialize and return Anthropic client
     """
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise ValueError(
-            "OPENAI_API_KEY not found. Please set it as an environment variable or in a .env file."
+            "ANTHROPIC_API_KEY not found. Please set it as an environment variable or in a .env file."
         )
-    return OpenAI(api_key=api_key)
+    return Anthropic(api_key=api_key)
 
 # Scoring Rubric Definition
 SCORING_RUBRIC = [
@@ -105,7 +105,7 @@ SCORING_RUBRIC = [
 
 def analyze_transcript_with_llm(transcript_text: str) -> Dict[str, Any]:
     """
-    Analyze transcript using OpenAI LLM.
+    Analyze transcript using Anthropic Claude LLM.
     
     Args:
         transcript_text: The interview transcript
@@ -114,32 +114,32 @@ def analyze_transcript_with_llm(transcript_text: str) -> Dict[str, Any]:
         Dictionary with scores array matching the JSON schema
         
     Raises:
-        ValueError: If OpenAI API key is not set
+        ValueError: If Anthropic API key is not set
         Exception: If API call fails
     """
     try:
         logger.info("Starting LLM analysis...")
-        client = get_openai_client()
+        client = get_anthropic_client()
         
         # Get system instruction
         system_instruction = get_system_instruction()
         
         # Prepare the user message with transcript
-        user_message = f"Interview transcript:\n\n{transcript_text}"
+        user_message = f"Interview transcript:\n\n{transcript_text}\n\nPlease respond ONLY with valid JSON matching the specified format."
         
-        # Call OpenAI API
-        response = client.chat.completions.create(
-            model="gpt-4o",  # Using GPT-4o for better analysis, can change to gpt-4 or gpt-3.5-turbo
+        # Call Anthropic API
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",  # Using Claude 3.5 Sonnet for best analysis
+            max_tokens=4096,
+            temperature=0.3,  # Lower temperature for more consistent scoring
+            system=system_instruction,
             messages=[
-                {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_message}
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.3  # Lower temperature for more consistent scoring
+            ]
         )
         
         # Extract and parse JSON response
-        content = response.choices[0].message.content
+        content = response.content[0].text
         logger.debug(f"Raw LLM response content: {content[:500]}...")  # Log first 500 chars
         
         try:
@@ -276,7 +276,7 @@ def analyze_transcript_with_llm(transcript_text: str) -> Dict[str, Any]:
         
     except json.JSONDecodeError as e:
         logger.error(f"JSON decode error: {e}", exc_info=True)
-        raise ValueError(f"Failed to parse JSON response from OpenAI: {str(e)}")
+        raise ValueError(f"Failed to parse JSON response from Anthropic: {str(e)}")
     except ValueError as e:
         logger.error(f"ValueError in LLM analysis: {e}", exc_info=True)
         raise
@@ -285,7 +285,7 @@ def analyze_transcript_with_llm(transcript_text: str) -> Dict[str, Any]:
         logger.error(f"Error type: {type(e)}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise Exception(f"Error calling OpenAI API: {str(e)}")
+        raise Exception(f"Error calling Anthropic API: {str(e)}")
 
 def get_system_instruction() -> str:
     """
