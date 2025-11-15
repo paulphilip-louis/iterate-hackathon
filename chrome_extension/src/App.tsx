@@ -30,15 +30,15 @@ function App() {
   }
 
   return (
-    <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-neutral-50 to-neutral-200 p-6">
+    <div className="min-h-0 h-full w-full flex items-center justify-center bg-gradient-to-br from-neutral-50 to-neutral-200 p-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="w-full max-w-md"
       >
-        <Card className="rounded-2xl shadow-xl border border-neutral-100 bg-white/80 backdrop-blur p-8 pb-6">
-          <CardContent className="flex flex-col items-center text-center space-y-6 p-0">
+        <Card className="min-h-0 rounded-2xl shadow-xl border border-neutral-100 bg-white/80 backdrop-blur p-8 pb-6">
+          <CardContent className="min-h-0 flex flex-col items-center text-center space-y-6 p-0">
             <motion.img
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -52,7 +52,7 @@ function App() {
               Real-Time Interview Companion for Recruiters
             </h1>
 
-            <div className="w-full -mb-2">
+            <div className="min-h-0 w-full -mb-2">
               <FormScreen onSubmit={handleFormSubmit} />
             </div>
           </CardContent>

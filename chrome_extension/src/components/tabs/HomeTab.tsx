@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Button } from "../ui/button";
 import { Flag } from "lucide-react";
 import { useMeeting } from "@/hooks/useMeeting";
-import { useAudioCapture } from "@/hooks/useAudioCapture";
 
 interface Flag {
   id: string;
@@ -70,12 +69,6 @@ export function HomeTab() {
   const [defines, setDefines] = useState<Define[]>([]);
   const [questions, setQuestions] = useState<SuggestedQuestion[]>([]);
   const [flags, setFlags] = useState<Flag[]>([]);
-  const {
-    isCapturing,
-    loading,
-    audioLevel,
-    stopCapture,
-  } = useAudioCapture();
 
   const handleNewSuggestedQuestion = (question: string) => {
     const newQuestion: SuggestedQuestion = {
@@ -138,35 +131,8 @@ export function HomeTab() {
   };
 
   return (
-    <div className="h-full w-full overflow-y-auto">
-      <div className="p-4 flex gap-2 flex-wrap">
-      {isCapturing && (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-              <h2 className="text-lg font-semibold">Recording</h2>
-            </div>
-            <Button
-              onClick={stopCapture}
-              disabled={loading}
-              variant="destructive"
-              size="sm"
-            >
-              {loading ? "Stopping..." : "Stop Capture"}
-            </Button>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
-          <div
-            className="h-2 rounded-full transition-all duration-100"
-            style={{
-              width: `${Math.min(audioLevel * 2, 100)}%`,
-              backgroundColor: `hsl(${Math.max(0, 120 - audioLevel * 1.2)}, 100%, 50%)`,
-            }}
-          ></div>
-          </div>
-        </div>
-      )}
+    <div className="min-h-0 h-full w-full overflow-y-auto">
+      <div className="min-h-0 p-4 flex gap-2 flex-wrap">
         <Button onClick={simulateSuggestedQuestion} variant="outline" size="sm">
           Simulate Suggested Question
         </Button>
@@ -190,8 +156,8 @@ export function HomeTab() {
           Simulate Define Term
         </Button>
       </div>
-      <div className="flex flex-col gap-4 w-full p-4">
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col h-[200px]">
+      <div className="min-h-0 flex flex-col gap-4 w-full p-4">
+        <div className="min-h-0 bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col h-[200px]">
           <h2 className="text-lg font-semibold mb-3">Suggested Questions</h2>
           <Separator className="mb-3" />
           <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
@@ -199,7 +165,7 @@ export function HomeTab() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col h-[200px]">
+        <div className="min-h-0 bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col h-[200px]">
           <h2 className="text-lg font-semibold mb-3">Flags</h2>
           <Separator className="mb-3" />
           <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
@@ -207,7 +173,7 @@ export function HomeTab() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col h-[200px]">
+        <div className="min-h-0 bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col h-[200px]">
           <h2 className="text-lg font-semibold mb-3">Define</h2>
           <Separator className="mb-3" />
           <div className="space-y-2 overflow-y-auto flex-1 min-h-0">

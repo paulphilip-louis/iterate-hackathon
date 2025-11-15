@@ -1,0 +1,22 @@
+services:
+  interview-analysis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: interview-analysis-service
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - HOST=0.0.0.0
+    restart: unless-stopped
+    networks:
+      - interview-network
+
+networks:
+  interview-network:
+    driver: bridge
+

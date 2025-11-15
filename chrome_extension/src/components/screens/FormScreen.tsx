@@ -27,8 +27,8 @@ export function FormScreen({ onSubmit }: FormScreenProps) {
   });
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-2">
+    <form onSubmit={handleSubmit(onSubmit)} className="min-h-0 space-y-4">
+      <div className="min-h-0 space-y-2">
         <Label htmlFor="companyValues">Company Values</Label>
         <Input
           id="companyValues"
@@ -41,7 +41,7 @@ export function FormScreen({ onSubmit }: FormScreenProps) {
         )}
       </div>
 
-      <div className="space-y-2">
+      <div className="min-h-0 space-y-2">
         <Label htmlFor="jobDescription">Job Description</Label>
         <Input
           id="jobDescription"
@@ -56,7 +56,7 @@ export function FormScreen({ onSubmit }: FormScreenProps) {
         )}
       </div>
 
-      <div className="space-y-2">
+      <div className="min-h-0 space-y-2">
         <Label htmlFor="candidateLinkedInUrl">Candidate LinkedIn URL</Label>
         <Input
           id="candidateLinkedInUrl"

@@ -62,157 +62,139 @@ export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
   };
 
   return (
-    <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-neutral-50 to-neutral-200 p-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
-        <Card className="rounded-2xl shadow-xl border border-neutral-100 bg-white/80 backdrop-blur p-8 pb-6">
-          <CardContent className="flex flex-col space-y-6 p-0">
-            <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 text-center">
-              Few steps before you start
-            </h1>
-            <p className="text-sm text-neutral-700 text-center">
-              Manage microphone access and select a meeting tab.
-            </p>
+<div className="min-h-0 h-full w-full flex items-center justify-center bg-gradient-to-br from-neutral-50 to-neutral-200 p-6">
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5 }}
+    className="w-full max-w-md"
+  >
+    <Card className="min-h-0 rounded-2xl shadow-xl border border-neutral-100 bg-white/80 backdrop-blur p-8 pb-6">
+      <CardContent className="min-h-0 flex flex-col space-y-6 p-0">
 
-            {/* Microphone Permission */}
-            <div className="p-4 rounded-lg border bg-white/50 backdrop-blur">
-              <Label className="mb-3 block text-sm font-medium">
-                Microphone Permission
-              </Label>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  {microphonePermission === "granted" && (
-                    <>
-                      <div className="w-2.5 h-2.5 bg-green-500 rounded-full shadow-sm" />
-                      <span className="text-sm text-green-700 font-medium">
-                        Granted
-                      </span>
-                    </>
-                  )}
+        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 text-center">
+          Few steps before you start
+        </h1>
+        <p className="text-sm text-neutral-700 text-center">
+          Manage microphone access and select a meeting tab.
+        </p>
 
-                  {microphonePermission === "denied" && (
-                    <>
-                      <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-sm" />
-                      <span className="text-sm text-red-700 font-medium">
-                        Denied
-                      </span>
-                    </>
-                  )}
+        <div className="min-h-0 p-4 rounded-lg border bg-white/50 backdrop-blur">
+          <Label className="mb-3 block text-sm font-medium">Microphone Permission</Label>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              {microphonePermission === "granted" && (
+                <>
+                  <div className="w-2.5 h-2.5 bg-green-500 rounded-full shadow-sm" />
+                  <span className="text-sm text-green-700 font-medium">Granted</span>
+                </>
+              )}
 
-                  {(microphonePermission === "prompt" ||
-                    microphonePermission === "checking") && (
-                    <>
-                      <div className="w-2.5 h-2.5 bg-yellow-500 rounded-full shadow-sm" />
-                      <span className="text-sm text-yellow-700 font-medium">
-                        {microphonePermission === "checking"
-                          ? "Checking..."
-                          : "Not Requested"}
-                      </span>
-                    </>
-                  )}
-                </div>
+              {microphonePermission === "denied" && (
+                <>
+                  <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-sm" />
+                  <span className="text-sm text-red-700 font-medium">Denied</span>
+                </>
+              )}
 
-                {microphonePermission !== "granted" && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={requestMicrophonePermission}
-                    disabled={loading || microphonePermission === "checking"}
-                    className="text-xs"
-                  >
-                    {loading ? "Requesting..." : "Request"}
-                  </Button>
-                )}
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Permission is required to start capturing audio.
-              </p>
+              {(microphonePermission === "prompt" || microphonePermission === "checking") && (
+                <>
+                  <div className="w-2.5 h-2.5 bg-yellow-500 rounded-full shadow-sm" />
+                  <span className="text-sm text-yellow-700 font-medium">
+                    {microphonePermission === "checking" ? "Checking..." : "Not Requested"}
+                  </span>
+                </>
+              )}
             </div>
 
-            {/* Tabs */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                Select Video Call Tab
-              </Label>
-              {tabs.length === 0 ? (
-                <div className="text-sm text-gray-500">
-                  No video call tabs found. Open Google Meet, Teams, or Zoom.
-                </div>
-              ) : (
-                <select
-                  value={selectedTabId || ""}
-                  onChange={(e) => setSelectedTabId(Number(e.target.value))}
-                  disabled={isCapturing}
-                  className="w-full px-3 py-2 rounded-md border text-sm bg-white/70 backdrop-blur focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
-                >
-                  {tabs.map((tab) => (
-                    <option key={tab.id} value={tab.id}>
-                      {getTabName(tab)}
-                    </option>
-                  ))}
-                </select>
-              )}
+            {microphonePermission !== "granted" && (
               <Button
-                onClick={loadTabs}
-                variant="outline"
+                variant="secondary"
                 size="sm"
-                className="w-full"
+                onClick={requestMicrophonePermission}
+                disabled={loading || microphonePermission === "checking"}
+                className="text-xs"
               >
-                Refresh Tabs
+                {loading ? "Requesting..." : "Request"}
               </Button>
-            </div>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Permission is required to start capturing audio.
+          </p>
+        </div>
 
-            {/* Start / Stop */}
-            <div>
-              {!isCapturing ? (
-                <Button
-                  onClick={handleStartCapture}
-                  disabled={
-                    loading ||
-                    !selectedTabId ||
-                    tabs.length === 0 ||
-                    microphonePermission !== "granted"
-                  }
-                  className="w-full"
-                >
-                  {loading ? "Starting..." : "Start Capture"}
-                </Button>
-              ) : (
-                <Button
-                  onClick={stopCapture}
-                  disabled={loading}
-                  variant="destructive"
-                  className="w-full"
-                >
-                  {loading ? "Stopping..." : "Stop Capture"}
-                </Button>
-              )}
+        <div className="min-h-0 space-y-2">
+          <Label className="text-sm font-medium">Select Video Call Tab</Label>
+          {tabs.length === 0 ? (
+            <div className="text-sm text-gray-500">
+              No video call tabs found. Open Google Meet, Teams, or Zoom.
             </div>
+          ) : (
+            <select
+              value={selectedTabId || ""}
+              onChange={(e) => setSelectedTabId(Number(e.target.value))}
+              disabled={isCapturing}
+              className="w-full px-3 py-2 rounded-md border text-sm bg-white/70 backdrop-blur focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+            >
+              {tabs.map((tab) => (
+                <option key={tab.id} value={tab.id}>
+                  {getTabName(tab)}
+                </option>
+              ))}
+            </select>
+          )}
+          <Button onClick={loadTabs} variant="outline" size="sm" className="w-full">
+            Refresh Tabs
+          </Button>
+        </div>
 
-            {/* Status */}
-            {(status || error) && (
-              <div
-                className={`
+        {/* Start / Stop */}
+        <div className="min-h-0">
+          {!isCapturing ? (
+            <Button
+              onClick={handleStartCapture}
+              disabled={
+                loading ||
+                !selectedTabId ||
+                tabs.length === 0 ||
+                microphonePermission !== "granted"
+              }
+              className="w-full"
+            >
+              {loading ? "Starting..." : "Start Capture"}
+            </Button>
+          ) : (
+            <Button
+              onClick={stopCapture}
+              disabled={loading}
+              variant="destructive"
+              className="w-full"
+            >
+              {loading ? "Stopping..." : "Stop Capture"}
+            </Button>
+          )}
+        </div>
+
+        {(status || error) && (
+          <div
+            className={`
               p-3 rounded-md text-sm border
-              ${
-                isCapturing && !status?.includes("Error") && !error
-                  ? "bg-green-50 text-green-800 border-green-200"
-                  : status?.toLowerCase().includes("error") || error
-                  ? "bg-red-50 text-red-800 border-red-200"
-                  : "bg-blue-50 text-blue-800 border-blue-200"
+              ${isCapturing && !status?.includes("Error") && !error
+                ? "bg-green-50 text-green-800 border-green-200"
+                : (status?.toLowerCase().includes("error") || error)
+                ? "bg-red-50 text-red-800 border-red-200"
+                : "bg-blue-50 text-blue-800 border-blue-200"
               }
             `}
-              >
-                {error || status}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
-    </div>
+          >
+            {error || status}
+          </div>
+        )}
+
+      </CardContent>
+    </Card>
+  </motion.div>
+</div>
   );
 }
