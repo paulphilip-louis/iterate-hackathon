@@ -1,28 +1,42 @@
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 function App() {
-  const [message, setMessage] = useState<string>("");
-
-  const handleClick = () => {
-    setMessage("Hello from Chrome Extension!");
-  };
+  const [companyValues, setCompanyValues] = useState<string>("");
+  const [jobDescription, setJobDescription] = useState<string>("");
+  const [candidateLinkedInUrl, setCandidateLinkedInUrl] = useState<string>("");
 
   return (
-    <div className="w-80 p-5 text-center font-sans">
-      <h1 className="text-2xl font-bold text-gray-800 mb-2">Hello World!</h1>
-      <p className="text-gray-600 mb-4">This is a Chrome extension.</p>
-      <button
-        id="clickBtn"
-        onClick={handleClick}
-        className="bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-medium py-2 px-5 rounded transition-colors duration-200 mt-2"
-      >
-        Click Me
-      </button>
-      {message && (
-        <p className="mt-4 font-semibold text-green-600 min-h-[20px]">
-          {message}
-        </p>
-      )}
+    <div className="h-full w-full flex items-center justify-center">
+      <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
+        <h1 className="text-2xl font-bold text-center mb-4">
+          Iterate Hackathon
+        </h1>
+        <Label className="mb-2">Company Values</Label>
+        <Input
+          className="mb-4"
+          type="text"
+          value={companyValues}
+          onChange={(e) => setCompanyValues(e.target.value)}
+        />
+        <Label className="mb-2">Job Description</Label>
+        <Input
+          className="mb-4"
+          type="text"
+          value={jobDescription}
+          onChange={(e) => setJobDescription(e.target.value)}
+        />
+        <Label className="mb-2">Candidate LinkedIn URL</Label>
+        <Input
+          className="mb-6"
+          type="text"
+          value={candidateLinkedInUrl}
+          onChange={(e) => setCandidateLinkedInUrl(e.target.value)}
+        />
+        <Button className="w-full">Hop in!</Button>
+      </div>
     </div>
   );
 }
