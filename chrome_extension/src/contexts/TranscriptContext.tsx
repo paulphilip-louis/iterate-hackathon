@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from "react";
 import { globalCaptureManager } from "@/utils/globalCaptureManager";
 
 interface Transcript {
@@ -15,11 +21,15 @@ interface TranscriptContextType {
   clearTranscripts: () => void;
 }
 
-const TranscriptContext = createContext<TranscriptContextType | undefined>(undefined);
+const TranscriptContext = createContext<TranscriptContextType | undefined>(
+  undefined
+);
 
 export function TranscriptProvider({ children }: { children: ReactNode }) {
   const [partialTranscript, setPartialTranscript] = useState<string>("");
-  const [committedTranscripts, setCommittedTranscripts] = useState<Transcript[]>([]);
+  const [committedTranscripts, setCommittedTranscripts] = useState<
+    Transcript[]
+  >([]);
 
   const addCommittedTranscript = (transcript: Transcript) => {
     console.log("➕ Adding committed transcript:", transcript);
@@ -59,10 +69,13 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
       setPartialTranscriptWithLog,
       addCommittedTranscriptWrapper
     );
-    console.log("✅ Updated global transcript callbacks from TranscriptProvider", {
-      partialLength: partialTranscript.length,
-      committedCount: committedTranscripts.length,
-    });
+    console.log(
+      "✅ Updated global transcript callbacks from TranscriptProvider",
+      {
+        partialLength: partialTranscript.length,
+        committedCount: committedTranscripts.length,
+      }
+    );
   });
 
   // Also update on every render to ensure callbacks are always fresh
@@ -90,4 +103,3 @@ export function useTranscripts() {
   }
   return context;
 }
-

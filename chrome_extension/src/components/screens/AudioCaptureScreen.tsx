@@ -47,44 +47,53 @@ export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
             <Label className="mb-2 block">Microphone Permission:</Label>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-2">
-                {microphonePermission === 'granted' && (
+                {microphonePermission === "granted" && (
                   <>
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm text-green-700 font-medium">Granted</span>
+                    <span className="text-sm text-green-700 font-medium">
+                      Granted
+                    </span>
                   </>
                 )}
-                {microphonePermission === 'denied' && (
+                {microphonePermission === "denied" && (
                   <>
                     <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                    <span className="text-sm text-red-700 font-medium">Denied</span>
+                    <span className="text-sm text-red-700 font-medium">
+                      Denied
+                    </span>
                   </>
                 )}
-                {(microphonePermission === 'prompt' || microphonePermission === 'checking') && (
+                {(microphonePermission === "prompt" ||
+                  microphonePermission === "checking") && (
                   <>
                     <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
                     <span className="text-sm text-yellow-700 font-medium">
-                      {microphonePermission === 'checking' ? 'Checking...' : 'Not Requested'}
+                      {microphonePermission === "checking"
+                        ? "Checking..."
+                        : "Not Requested"}
                     </span>
                   </>
                 )}
               </div>
-              {microphonePermission !== 'granted' && (
+              {microphonePermission !== "granted" && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={requestMicrophonePermission}
-                  disabled={loading || microphonePermission === 'checking'}
+                  disabled={loading || microphonePermission === "checking"}
                   className="text-xs"
                 >
-                  {loading ? 'Requesting...' : 'Request Permission'}
+                  {loading ? "Requesting..." : "Request Permission"}
                 </Button>
               )}
             </div>
             <p className="text-xs text-gray-600 mt-1">
-              You must grant microphone permission before starting capture.
+              Microphone permission is required to capture your voice along with
+              the tab audio.
             </p>
           </div>
 
+          {/* Tab Selection */}
           <div>
             <Label className="mb-2">Select Video Call Tab:</Label>
             {tabs.length === 0 ? (
@@ -119,10 +128,15 @@ export function AudioCaptureScreen({ onNext }: AudioCaptureScreenProps) {
             {!isCapturing ? (
               <Button
                 onClick={handleStartCapture}
-                disabled={loading || !selectedTabId || tabs.length === 0 || microphonePermission !== 'granted'}
+                disabled={
+                  loading ||
+                  !selectedTabId ||
+                  tabs.length === 0 ||
+                  microphonePermission !== "granted"
+                }
                 className="w-full"
               >
-                {loading ? "Starting..." : "Start Capture"}
+                {loading ? "Starting..." : "Start Capture (Tab + Microphone)"}
               </Button>
             ) : (
               <Button

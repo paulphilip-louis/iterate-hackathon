@@ -23,6 +23,24 @@ export class AudioStream {
       throw new Error('Already connected');
     }
 
+    // Validate WebSocket URL
+    if (!BACKEND_WS_URL || typeof BACKEND_WS_URL !== 'string') {
+      throw new Error('BACKEND_WS_URL is not configured');
+    }
+
+    // Validate URL scheme
+    try {
+      const url = new URL(BACKEND_WS_URL);
+      if (!['ws:', 'wss:'].includes(url.protocol)) {
+        throw new Error(`Invalid WebSocket URL scheme: ${url.protocol}. Must be 'ws://' or 'wss://'`);
+      }
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error(`Invalid WebSocket URL format: ${BACKEND_WS_URL}`);
+      }
+      throw error;
+    }
+
     return new Promise((resolve, reject) => {
       try {
         this.ws = new WebSocket(BACKEND_WS_URL);

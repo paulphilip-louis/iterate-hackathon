@@ -102,6 +102,28 @@ export function useMeeting(callbacks: UseMeetingCallbacks) {
       return;
     }
 
+    // Validate WebSocket URL before attempting connection
+    if (!MEETING_WS_URL || typeof MEETING_WS_URL !== 'string') {
+      console.warn("⚠️ MEETING_WS_URL is not configured. Meeting events WebSocket will not connect.");
+      console.warn("Set MEETING_WS_URL environment variable to enable meeting events.");
+      onConnectionChange?.(false);
+      return;
+    }
+
+    // Validate URL scheme
+    try {
+      const url = new URL(MEETING_WS_URL);
+      if (!['ws:', 'wss:'].includes(url.protocol)) {
+        console.error("❌ Invalid WebSocket URL scheme. Must be 'ws://' or 'wss://'");
+        onConnectionChange?.(false);
+        return;
+      }
+    } catch (error) {
+      console.error("❌ Invalid WebSocket URL format:", MEETING_WS_URL);
+      onConnectionChange?.(false);
+      return;
+    }
+
     // Clear any pending reconnect attempts
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
