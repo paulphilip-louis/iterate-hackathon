@@ -1,11 +1,8 @@
-import { Separator } from "@/components/ui/separator";
 import { useScript } from "@/contexts/ScriptContext";
 import { useInterviewAnalysis } from "@/hooks/useInterviewAnalysis";
 import { Check, Circle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useEffect } from "react";
 
-// Interview script structure (matching the backend)
 const INTERVIEW_SCRIPT = [
   {
     id: 1,
@@ -59,25 +56,11 @@ const INTERVIEW_SCRIPT = [
 
 export function TodosTab() {
   const { scriptState, setScriptState } = useScript();
-  const { markSubsectionCompleted } = useInterviewAnalysis(); // No parameters needed, uses context directly
-  
-  // Debug: log script state changes
-  useEffect(() => {
-    if (scriptState) {
-      console.log("📋 TodosTab: scriptState updated:", scriptState);
-      console.log("   Current section:", scriptState.currentSection);
-      console.log("   Completed sections:", scriptState.completedSections);
-      console.log("   Completed subsections:", scriptState.completedSubsections);
-    } else {
-      console.log("⚠️ TodosTab: scriptState is null");
-    }
-  }, [scriptState]);
+  const { markSubsectionCompleted } = useInterviewAnalysis();
 
   const handleSubsectionToggle = (subsectionId: string, isCurrentlyCompleted: boolean) => {
-    // If not completed, mark it as completed
     if (!isCurrentlyCompleted) {
       markSubsectionCompleted(subsectionId);
-      // Optimistically update local state
       if (scriptState) {
         setScriptState({
           ...scriptState,
@@ -88,21 +71,10 @@ export function TodosTab() {
         });
       }
     }
-    // Note: We don't allow unchecking (once completed, stays completed)
   };
 
   return (
-    <div className="flex flex-col gap-4 h-full w-full p-4 overflow-hidden">
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-bold">Interview Script</h1>
-        {scriptState && (
-          <div className="text-sm text-neutral-600">
-            Progress: {scriptState.progress.toFixed(0)}%
-          </div>
-        )}
-      </div>
-      <Separator className="mb-3" />
-      
+    <div className="flex flex-col gap-4 h-full w-full p-4 overflow-hidden">      
       <div className="flex-1 overflow-y-auto space-y-4">
         {INTERVIEW_SCRIPT.map((section) => {
           const isSectionCompleted = scriptState?.completedSections[section.id] || false;
@@ -154,7 +126,7 @@ export function TodosTab() {
                         checked={isCompleted}
                         onCheckedChange={() => handleSubsectionToggle(subsection.id, isCompleted)}
                         className="w-4 h-4 flex-shrink-0 cursor-pointer"
-                        disabled={isCompleted} // Disable if already completed (can't uncheck)
+                        disabled={isCompleted}
                       />
                       <label
                         htmlFor={subsection.id}

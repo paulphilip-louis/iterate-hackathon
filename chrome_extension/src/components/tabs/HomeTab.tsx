@@ -55,9 +55,6 @@ function FlagList({ flags }: { flags: Flag[] }) {
 }
 
 export function HomeTab() {
-  console.log("🏠 HomeTab component rendered");
-
-  // Get persistent state from context
   const {
     questions,
     flags: contextFlags,
@@ -67,15 +64,9 @@ export function HomeTab() {
     addDefine,
   } = useMeetingEvents();
 
-  // Get flags from interview analysis service
   const { flags: analysisFlags } = useInterviewAnalysis();
 
-  console.log(`🏁 HomeTab: analysisFlags count = ${analysisFlags.length}`);
-  console.log(`🏁 HomeTab: contextFlags count = ${contextFlags.length}`);
-
-  // Combine analysis flags (from interview analysis service) with manual flags (from context/useMeeting)
   const flags = [...analysisFlags, ...contextFlags];
-  console.log(`🚩 HomeTab: total flags = ${flags.length}`);
 
   useMeeting({
     onNewSuggestedQuestion: addQuestion,
@@ -86,7 +77,6 @@ export function HomeTab() {
 
   return (
     <div className="min-h-0 h-full w-full overflow-y-auto">
-      <div className="min-h-0 p-4 flex gap-2 flex-wrap"></div>
       <div className="min-h-0 flex flex-col gap-4 w-full p-4">
         <div className="min-h-0 bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col h-[200px]">
           <h2 className="text-lg font-semibold mb-3">Suggested Questions</h2>

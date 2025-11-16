@@ -34,7 +34,7 @@ export function Home({ formData: _formData, onStopCapture }: HomeProps) {
           <Tabs defaultValue="Home" className="flex flex-col w-full">
             <div className="min-h-0 flex items-center justify-center gap-3 mb-2">
               <TabsList className="w-fit rounded-lg bg-white/50 backdrop-blur p-1 shadow-sm">
-                <TabsTrigger value="Home">Home</TabsTrigger>
+                <TabsTrigger value="Home">Main</TabsTrigger>
                 <TabsTrigger value="Transcript">Transcript</TabsTrigger>
                 <TabsTrigger value="Todos">Todos</TabsTrigger>
               </TabsList>
@@ -54,7 +54,7 @@ export function Home({ formData: _formData, onStopCapture }: HomeProps) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
-              className="flex-1 overflow-hidden min-h-0 mt-4"
+              className="flex-1 overflow-hidden min-h-0 mt-2"
             >
               <TabsContent value="Home" className="h-full">
                 <HomeTab />
