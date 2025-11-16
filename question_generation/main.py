@@ -1,6 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import uvicorn
 import question_generation as generate_questions
+import keyword_search
 import os
 from langchain_anthropic import ChatAnthropic
 from linkup import LinkupClient
@@ -17,6 +18,7 @@ if not LINKUP_API_KEY:
 CV = ""
 JOB_OFFER = ""
 COMPANY_VALUES = ""
+KEYWORDS = {}
 
 app = FastAPI()
 model = ChatAnthropic(
@@ -31,7 +33,7 @@ client = LinkupClient(api_key=LINKUP_API_KEY)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    global TRANSCRIPT, CV, JOB_OFFER, CANDIDATE_INFOS, COMPANY_VALUES
+    global TRANSCRIPT, CV, JOB_OFFER, CANDIDATE_INFOS, COMPANY_VALUES, KEYWORDS
     await websocket.accept()
     print("Client connected")
     try:
@@ -46,11 +48,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 TRANSCRIPT += data["payload"]
                 TRANSCRIPT = TRANSCRIPT[-500:] # Keep a limited window of the transcript
                 # TODO : Identify keywords, Only if smooth
-
-                # TODO : Generate questions every 10s (2 chunks)
-                if counter % 2 == 0:
+                for keyword, definition in KEYWORDS.items():
+                    if keyword in data["payload"]:
+                        await websocket.send_text(json.dumps({"event": "DEFINE_TERM", "payload": {"term": keyword, "definition": definition}}))
+                # TODO : Generate questions every 20s (4 chunks)
+                if counter % 4 == 0:
                     context = "#Job offer : " + JOB_OFFER + "\n\n#Company values : " + COMPANY_VALUES + "\n\n#Candidate profile : " + CV
-                    QUESTION = generate_questions.generate_questions_online(model, context, TRANSCRIPT)
+                    QUESTION = await generate_questions.generate_questions_online(model, context, TRANSCRIPT)
                     await websocket.send_text(json.dumps({"event": "NEW_SUGGESTED_QUESTION", "payload": QUESTION}))
                     
             elif data["event"] == "CANDIDATE_INFOS":
@@ -58,7 +62,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 linkedin_url = CANDIDATE_INFOS.get("CANDIDATES_LINKEDIN") or CANDIDATE_INFOS.get("linkedin_url", "")
                 job_description = CANDIDATE_INFOS.get("JOB_DESCRIPTION") or CANDIDATE_INFOS.get("job_offer", "")
                 company_values = CANDIDATE_INFOS.get("COMPANY_VALUES", "")
-
+                
                 if linkedin_url:
                     # Ajouter https:// si manquant
                     if not linkedin_url.startswith("http"):
@@ -67,16 +71,17 @@ async def websocket_endpoint(websocket: WebSocket):
                     CV = generate_questions.extract_linkedin(client, linkedin_url)
                     JOB_OFFER = job_description
                     COMPANY_VALUES = company_values
+                    KEYWORDS = await keyword_search.extract_keywords_and_def(model, CV)
 
                 # Generate generic questions
                 context = "#Job offer : " + JOB_OFFER + "\n\n#Company values : " + COMPANY_VALUES + "\n\n#Candidate profile : " + CV
-                questions = generate_questions.generate_questions_beginning(model, context)
+                questions = await generate_questions.generate_questions_beginning(model, context)
                 await websocket.send_text(json.dumps({"event": "STARTING_QUESTIONS", "payload": questions}))
 
             elif data["event"] not in ["GREEN_FLAG", "RED_FLAG", "DEFINE_TERM", "TODO_CREATED", "TICK_TODO"]:
                 print(f"Unknown event type: {data.get('event')}")
                 await websocket.send_text(json.dumps({"event": "error", "payload": "Unknown event type"}))
-                
+
     except WebSocketDisconnect:
         print("Client disconnected normally")
     except json.JSONDecodeError as e:
@@ -91,8 +96,6 @@ async def websocket_endpoint(websocket: WebSocket):
         except:
             pass
         await websocket.close()
-
-
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
