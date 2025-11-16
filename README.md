@@ -6,13 +6,9 @@
 
 ---
 
-## Screenshots
+## Demo Video
 
-Place screenshots in `docs/screenshots` and update the paths below.
-
-![Home](docs/screenshots/home.png)
-![Capture](docs/screenshots/capture.png)
-![Completion](docs/screenshots/completion.png)
+![Click](docs/screenshots/home.png)
 
 ---
 
@@ -26,10 +22,13 @@ Place screenshots in `docs/screenshots` and update the paths below.
 
 1) Create a root `.env` file with required API keys:
 
+[Linkup](https://www.linkup.so/) | [Groq](https://groq.com) | [ElevenLabs](https://elevenlabs.io/app/developers) | [Anthropic](https://console.anthropic.com/)
+
 ```
 ANTHROPIC_API_KEY=<your_key>
 ELEVENLABS_API_KEY=<your_key>
 LINKUP_API_KEY=<your_key>
+GROQ_API_KEY=<your_key>
 ```
 
 2) Start all services:
