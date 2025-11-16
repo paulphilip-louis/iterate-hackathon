@@ -16,6 +16,7 @@ if not LINKUP_API_KEY:
     raise ValueError("LINKUP_API_KEY is not set")
 CV = ""
 JOB_OFFER = ""
+COMPANY_VALUES = ""
 
 app = FastAPI()
 model = ChatAnthropic(
@@ -30,7 +31,7 @@ client = LinkupClient(api_key=LINKUP_API_KEY)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    global TRANSCRIPT, CV, JOB_OFFER, CANDIDATE_INFOS 
+    global TRANSCRIPT, CV, JOB_OFFER, CANDIDATE_INFOS, COMPANY_VALUES
     await websocket.accept()
     print("Client connected")
     try:
@@ -39,16 +40,18 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
             data = json.loads(data)
             print(f"Received: {data}")
-            if data["EVENT_TYPE"] == "TRANSCRIPT_CHUNK":
-                TRANSCRIPT += data["PAYLOAD"]
+            if data["event"] == "TRANSCRIPT_CHUNK":
+                TRANSCRIPT += data["payload"]
+                TRANSCRIPT = TRANSCRIPT[-500:]
                 # TODO : Identify keywords
 
                 # TODO : Generate questions
-                context = "#Job offer : " + JOB_OFFER + "\n\n#Candidate profile : " + CV + "\n\n#Transcript : " + TRANSCRIPT
-                QUESTIONS = generate_questions.generate_questions_online(model, context)
-                await websocket.send_text(json.dumps({"type": "questions", "data": QUESTIONS}))
+                context = "#Job offer : " + JOB_OFFER + "\n\n#Company values : " + COMPANY_VALUES + "\n\n#Candidate profile : " + CV + "\n\n#Transcript : " + TRANSCRIPT
+                QUESTION = generate_questions.generate_questions_online(model, context)
+                await websocket.send_text(json.dumps({"event": "NEW_SUGGESTED_QUESTION", "payload": QUESTION}))
                 
-            elif data["EVENT_TYPE"] == "CANDIDATE_INFOS":
+            elif data["event"] == "CANDIDATE_INFOS":
+                CANDIDATE_INFOS = data["payload"]
                 linkedin_url = CANDIDATE_INFOS.get("CANDIDATES_LINKEDIN") or CANDIDATE_INFOS.get("linkedin_url", "")
                 job_description = CANDIDATE_INFOS.get("JOB_DESCRIPTION") or CANDIDATE_INFOS.get("job_offer", "")
                 company_values = CANDIDATE_INFOS.get("COMPANY_VALUES", "")
@@ -59,11 +62,12 @@ async def websocket_endpoint(websocket: WebSocket):
                         linkedin_url = "https://" + linkedin_url
                     print(f"Extracting LinkedIn profile from: {linkedin_url}")
                     CV = generate_questions.extract_linkedin(client, linkedin_url)
-                    await websocket.send_text(json.dumps({"type": "status", "message": "LinkedIn profile extracted"}))
+                    JOB_OFFER = job_description
+                    COMPANY_VALUES = company_values
                 
-            else:
-                print(f"Unknown event type: {data.get('EVENT_TYPE')}")
-                await websocket.send_text(json.dumps({"type": "error", "message": "Unknown event type"}))
+            elif data["event"] not in ["GREEN_FLAG", "RED_FLAG", "DEFINE_TERM", "TODO_CREATED", "TICK_TODO"]:
+                print(f"Unknown event type: {data.get('event')}")
+                await websocket.send_text(json.dumps({"event": "error", "payload": "Unknown event type"}))
                 
     except WebSocketDisconnect:
         print("Client disconnected normally")
