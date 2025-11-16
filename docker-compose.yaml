@@ -54,6 +54,8 @@ services:
     container_name: pdf_engine
     ports:
       - "8000:8000"
+    env_file:
+      - ./.env
     environment:
       - PORT=8000
       - LOG_LEVEL=INFO
