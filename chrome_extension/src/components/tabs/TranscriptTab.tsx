@@ -138,9 +138,6 @@ export function TranscriptTab() {
             <p className="text-sm text-neutral-500 mb-1">
               No transcripts yet
             </p>
-            <p className="text-xs text-neutral-400">
-              Start capturing audio to see live transcription here
-            </p>
           </div>
         )}
 

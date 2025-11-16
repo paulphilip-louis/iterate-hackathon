@@ -7,8 +7,20 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useAudioCapture } from "@/hooks/useAudioCapture";
 
-export function Home({ formData: _formData }: { formData: FormData }) {
+interface HomeProps {
+  formData: FormData;
+  onStopCapture?: () => void;
+}
+
+export function Home({ formData: _formData, onStopCapture }: HomeProps) {
   const { isCapturing, loading, stopCapture } = useAudioCapture();
+
+  const handleStop = async () => {
+    await stopCapture();
+    if (onStopCapture) {
+      onStopCapture();
+    }
+  };
 
   return (
     <div className="min-h-0 h-full w-full flex flex-col bg-gradient-to-br from-neutral-50 to-neutral-200 p-6">
@@ -28,7 +40,7 @@ export function Home({ formData: _formData }: { formData: FormData }) {
               </TabsList>
               {isCapturing && (
                 <Button
-                  onClick={stopCapture}
+                  onClick={handleStop}
                   disabled={loading}
                   variant="destructive"
                   size="sm"
