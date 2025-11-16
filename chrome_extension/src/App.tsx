@@ -2,11 +2,12 @@ import { useState } from "react";
 import { FormScreen, type FormData } from "@/components/screens/FormScreen";
 import { AudioCaptureScreen } from "@/components/screens/AudioCaptureScreen";
 import Home from "@/components/screens/HomeScreen";
+import { CompletionScreen } from "@/components/screens/CompletionScreen";
 import logoImage from "@/public/tomo-ai-logo.PNG";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 
-type AppStep = "form" | "audioCapture" | "home";
+type AppStep = "form" | "audioCapture" | "home" | "completion";
 
 function App() {
   const [step, setStep] = useState<AppStep>("form");
@@ -21,8 +22,21 @@ function App() {
     setStep("home");
   };
 
+  const handleStopCapture = () => {
+    setStep("completion");
+  };
+
+  const handleStartNew = () => {
+    setFormData(null);
+    setStep("form");
+  };
+
+  if (step === "completion" && formData) {
+    return <CompletionScreen formData={formData} onStartNew={handleStartNew} />;
+  }
+
   if (step === "home" && formData) {
-    return <Home formData={formData} />;
+    return <Home formData={formData} onStopCapture={handleStopCapture} />;
   }
 
   if (step === "audioCapture") {
