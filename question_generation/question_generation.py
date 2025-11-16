@@ -2,6 +2,8 @@ from typing import Any
 import re
 import ast
 import json
+
+from requests.models import Response
 from langchain_core.messages import SystemMessage
 
 def extract_linkedin(client, url):
@@ -40,7 +42,7 @@ def pdf_to_markdown(pdf_path):
 
     return "".join(markdown_content)
 
-def generate_questions_beginning(model, context):
+async def generate_questions_beginning(model, context):
 
     messages = [
         {"role": "system", "content": """You are a proficient job interviewer.
@@ -68,7 +70,7 @@ def generate_questions_beginning(model, context):
 
     return json.dumps(questions)
 
-def generate_questions_online(model, context, transcript):
+async def generate_questions_online(model, context, transcript):
     messages = [
         SystemMessage(
             content=[
@@ -97,4 +99,24 @@ def generate_questions_online(model, context, transcript):
     
     return response
 
-    
+async def extract_keywords(model, text):
+    messages = [
+        {"role": "system", "content": """You must extract the technical keywords and entities that a non-technical recruiter might not know from the text you are given. 
+        
+        CRITICAL OUTPUT FORMAT REQUIREMENTS:
+            - Separate each keyword with the delimiter: " ||| "
+            - Do NOT include numbering (no 1., 2., etc.)
+            - Do NOT include any introductory text, explanations, or concluding remarks
+            - Do NOT use newlines between keywords
+            - Your entire response must be ONLY the five questions separated by " ||| "
+            - YOUR OUTPUT MUST BE IN ASCII CHARACTER SET. NO em-dash.
+            Example format:
+            Keyword1 ||| Keyword2 ||| Keyword3 ||| Keyword4"""},
+        {"role": "user", "content": text},
+    ]
+    Response = model.invoke(messages).content
+
+    keywords = Response.split('|||')
+    keywords = [keyword.strip() for i, keyword in enumerate(keywords, start=1)]
+    return keywords
+
