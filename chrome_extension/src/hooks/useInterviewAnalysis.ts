@@ -4,45 +4,7 @@ import { useScript } from "@/contexts/ScriptContext";
 import { useMeetingEvents } from "@/contexts/MeetingEventsContext";
 import type { Transcript } from "@/contexts/TranscriptContext";
 
-const INTERVIEW_ANALYSIS_WS_URL = import.meta.env.VITE_INTERVIEW_ANALYSIS_WS_URL || "ws://localhost:8080";
-const SEND_INTERVAL = 5000; // 5 seconds
-
-interface AnalysisResult {
-  contradiction: {
-    contradiction_score: number;
-    trend: string;
-    contradictions: Array<{ message: string }>;
-    label: string;
-  };
-  scriptTracking: {
-    deviation: {
-      deviation: boolean;
-      type?: string;
-      message?: string;
-    };
-    scriptState: {
-      progress: number;
-      currentSection: number;
-    };
-  } | null;
-  culturalFit: {
-    cultural_score: number;
-    trend: string;
-    signals: Array<{ type: 'positive' | 'negative'; msg: string }>;
-    label: 'High Fit' | 'Moderate Fit' | 'Low Fit' | 'At Risk';
-  } | null;
-  metadata: {
-    chunkNumber: number;
-    speaker: string;
-    timestamp: number;
-  };
-}
-
-interface Flag {
-  id: string;
-  isGreen: boolean;
-  message: string;
-}
+// This hook now simply reads from global InterviewAnalysisContext
 
 export interface ScriptState {
   currentSection: number;
