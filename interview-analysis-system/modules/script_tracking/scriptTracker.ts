@@ -7,9 +7,10 @@
 
 import { INTERVIEW_SCRIPT } from './interviewScript';
 import { ClassificationResult, ScriptState } from './types';
+import type { Section } from './interviewScript';
 
 export class ScriptTracker {
-  /** Current section being discussed (1-6) */
+  /** Current section being discussed (1-5) */
   public currentSection: number = 1;
   
   /** Map of section IDs to completion status */
@@ -42,17 +43,30 @@ export class ScriptTracker {
   updateFromLLM(result: ClassificationResult): void {
     this.lastUpdate = Date.now();
 
+    console.log(`🔄 updateFromLLM called with:`, {
+      section: result.section,
+      subsection: result.subsection,
+      confidence: result.confidence,
+      isOffScript: result.isOffScript
+    });
+
     // If off-script, don't update state
     if (result.isOffScript) {
+      console.log(`⏭️  Skipping update: isOffScript=true`);
       return;
     }
 
     // Update current section if valid
-    if (result.section !== null && result.section >= 1 && result.section <= 6) {
-      // Only update if confidence is high enough (>= 0.6)
-      if (result.confidence >= 0.6) {
+    if (result.section !== null && result.section >= 1 && result.section <= 5) {
+      // Reduced threshold: update if confidence >= 0.4 (was 0.6)
+      if (result.confidence >= 0.4) {
+        console.log(`✅ Updating section: ${this.currentSection} → ${result.section} (confidence: ${result.confidence})`);
         this.currentSection = result.section;
+      } else {
+        console.log(`⏭️  Skipping section update: confidence ${result.confidence} < 0.4`);
       }
+    } else {
+      console.log(`⏭️  Skipping section update: section is null or invalid`);
     }
 
     // Update current subsection if valid
@@ -60,16 +74,32 @@ export class ScriptTracker {
       // Validate subsection ID format (e.g., "1.1", "2.3")
       const subsectionPattern = /^\d+\.\d+$/;
       if (subsectionPattern.test(result.subsection)) {
-        // Only update if confidence is high enough
-        if (result.confidence >= 0.6) {
+        // Reduced threshold: update if confidence >= 0.4 (was 0.6)
+        if (result.confidence >= 0.4) {
+          console.log(`✅ Updating subsection: ${this.currentSubsection} → ${result.subsection} (confidence: ${result.confidence})`);
           this.currentSubsection = result.subsection;
           
-          // Mark subsection as completed if confidence is very high
-          if (result.confidence >= 0.8) {
-            this.completedSubsections[result.subsection] = true;
+          // Reduced threshold: mark as completed if confidence >= 0.5 (was 0.6)
+          // IMPORTANT: Once a subsection is completed, it can NEVER be unchecked automatically
+          if (result.confidence >= 0.5) {
+            // Only mark as completed if not already completed (prevent overwriting)
+            if (!this.completedSubsections[result.subsection]) {
+              console.log(`✅ Marking subsection ${result.subsection} as completed (confidence: ${result.confidence} >= 0.5)`);
+              this.completedSubsections[result.subsection] = true;
+            } else {
+              console.log(`✅ Subsection ${result.subsection} already completed, keeping it checked`);
+            }
+          } else {
+            console.log(`⏭️  Not marking as completed: confidence ${result.confidence} < 0.5`);
           }
+        } else {
+          console.log(`⏭️  Skipping subsection update: confidence ${result.confidence} < 0.4`);
         }
+      } else {
+        console.log(`⏭️  Skipping subsection update: invalid format "${result.subsection}"`);
       }
+    } else {
+      console.log(`⏭️  Skipping subsection update: subsection is null`);
     }
 
     // Mark section as completed if all its subsections are completed
@@ -162,7 +192,7 @@ export class ScriptTracker {
   /**
    * Manually mark a section as completed
    * 
-   * @param sectionId - Section ID (1-6)
+   * @param sectionId - Section ID (1-5)
    */
   markSectionCompleted(sectionId: number): void {
     this.completedSections[sectionId] = true;

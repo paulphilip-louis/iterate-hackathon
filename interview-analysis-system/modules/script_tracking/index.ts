@@ -13,6 +13,10 @@ import { ScriptTrackingOutput } from './types';
 // Global script tracker instance (singleton pattern)
 let scriptTracker: ScriptTracker | null = null;
 
+// Accumulate last 2-3 chunks for better context
+const chunkHistory: string[] = [];
+const MAX_HISTORY = 3;
+
 /**
  * Get or create the script tracker instance
  */
@@ -28,6 +32,7 @@ function getScriptTracker(): ScriptTracker {
  */
 export function resetScriptTracker(): void {
   scriptTracker = new ScriptTracker();
+  chunkHistory.length = 0; // Clear history
 }
 
 /**
@@ -35,10 +40,11 @@ export function resetScriptTracker(): void {
  * 
  * This is the main function to call for each transcript chunk.
  * It:
- * 1. Classifies the chunk using LLM
- * 2. Detects deviations from expected flow
- * 3. Updates script tracker state
- * 4. Returns complete output for UI overlay
+ * 1. Accumulates the last 2-3 chunks for better context
+ * 2. Classifies the accumulated chunk using LLM
+ * 3. Detects deviations from expected flow
+ * 4. Updates script tracker state
+ * 5. Returns complete output for UI overlay
  * 
  * @param chunk - Transcript chunk to process
  * @returns Complete script tracking output
@@ -47,20 +53,41 @@ export async function processTranscriptChunk(chunk: string): Promise<ScriptTrack
   const tracker = getScriptTracker();
   const previousSection = tracker.currentSection;
 
-  // 1. Classify chunk using LLM
-  const llmResult = await classifyChunk(chunk);
+  // 1. Accumulate chunks: add current chunk to history
+  chunkHistory.push(chunk);
+  if (chunkHistory.length > MAX_HISTORY) {
+    chunkHistory.shift(); // Remove oldest chunk
+  }
 
-  // 2. Detect deviation
+  // 2. Combine last 2-3 chunks for better context
+  const accumulatedChunk = chunkHistory.join(' ').trim();
+  console.log(`📚 Processing accumulated chunk (${chunkHistory.length} chunks, ${accumulatedChunk.length} chars)`);
+
+  // 3. Classify accumulated chunk using LLM (with keyword fallback)
+  console.log(`🔍 Classifying chunk: "${accumulatedChunk.substring(0, 100)}${accumulatedChunk.length > 100 ? '...' : ''}"`);
+  const llmResult = await classifyChunk(accumulatedChunk);
+  console.log(`✅ Classification result:`, {
+    section: llmResult.section,
+    subsection: llmResult.subsection,
+    confidence: llmResult.confidence,
+    isOffScript: llmResult.isOffScript,
+    reason: llmResult.reason
+  });
+
+  // 4. Detect deviation
   const deviation = detectDeviation(
     previousSection,
     llmResult.section,
     llmResult.isOffScript
   );
 
-  // 3. Update script tracker state
+  // 5. Update script tracker state
+  console.log(`📊 Before update: section=${tracker.currentSection}, subsection=${tracker.currentSubsection}`);
   tracker.updateFromLLM(llmResult);
+  console.log(`📊 After update: section=${tracker.currentSection}, subsection=${tracker.currentSubsection}`);
+  console.log(`📊 Completed subsections:`, Object.keys(tracker.completedSubsections).filter(id => tracker.completedSubsections[id]));
 
-  // 4. Get current script state
+  // 6. Get current script state
   const scriptState = tracker.getState();
 
   return {
@@ -93,7 +120,7 @@ export function markSubsectionCompleted(subsectionId: string): void {
 /**
  * Manually mark a section as completed
  * 
- * @param sectionId - Section ID (1-6)
+ * @param sectionId - Section ID (1-5)
  */
 export function markSectionCompleted(sectionId: number): void {
   const tracker = getScriptTracker();
@@ -106,4 +133,3 @@ export * from './interviewScript';
 export * from './scriptTracker';
 export * from './llmClassifier';
 export * from './deviationDetector';
-

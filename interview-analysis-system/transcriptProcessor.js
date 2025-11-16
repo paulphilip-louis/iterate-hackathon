@@ -15,11 +15,20 @@ import {
   processTranscriptChunk as processScriptChunk,
   resetScriptTracker 
 } from './modules/script_tracking/index.js';
+import { evaluateCulturalFit } from './modules/cultural_fit/index.js';
 
 // État global pour cette interview
 let contradictionScore = 100;
+let culturalFitScore = 50; // Score initial de cultural fit
 let recentContext = [];
 let chunkCounter = 0;
+
+// Accumulate chunks from both speakers for script tracking
+let scriptChunkHistory = {
+  candidate: [],
+  recruiter: []
+};
+const MAX_SCRIPT_HISTORY = 3;
 
 /**
  * ⚠️ FONCTION PRINCIPALE - Appelée à chaque chunk de transcript
@@ -104,34 +113,96 @@ export async function processTranscriptChunk(transcriptChunk, speaker, wss) {
   // 2. SCRIPT TRACKING (seulement pour recruteur)
   // ============================================
   let scriptTrackingResult = null;
-  if (speaker === 'recruiter') {
+  // Track script using BOTH candidate and recruiter transcripts
+  // Accumulate chunks from both speakers and combine them for better context
+  try {
+    // Add current chunk to history for this speaker
+    const speakerKey = speaker === 'candidate' ? 'candidate' : 'recruiter';
+    scriptChunkHistory[speakerKey].push(transcriptChunk);
+    if (scriptChunkHistory[speakerKey].length > MAX_SCRIPT_HISTORY) {
+      scriptChunkHistory[speakerKey].shift(); // Remove oldest chunk
+    }
+    
+    // Combine chunks from both speakers for script tracking
+    const combinedCandidateChunks = scriptChunkHistory.candidate.join(' ').trim();
+    const combinedRecruiterChunks = scriptChunkHistory.recruiter.join(' ').trim();
+    
+    // Combine both speakers' chunks with speaker labels for context
+    let combinedChunk = '';
+    if (combinedCandidateChunks && combinedRecruiterChunks) {
+      combinedChunk = `[CANDIDATE] ${combinedCandidateChunks} [RECRUITER] ${combinedRecruiterChunks}`;
+    } else if (combinedCandidateChunks) {
+      combinedChunk = `[CANDIDATE] ${combinedCandidateChunks}`;
+    } else if (combinedRecruiterChunks) {
+      combinedChunk = `[RECRUITER] ${combinedRecruiterChunks}`;
+    } else {
+      combinedChunk = transcriptChunk; // Fallback to current chunk only
+    }
+    
+    console.log(`📋 Running script tracking for ${speaker}...`);
+    console.log(`   Current chunk: "${transcriptChunk.substring(0, 100)}${transcriptChunk.length > 100 ? '...' : ''}"`);
+    console.log(`   Combined context (${scriptChunkHistory.candidate.length} candidate + ${scriptChunkHistory.recruiter.length} recruiter chunks): "${combinedChunk.substring(0, 150)}${combinedChunk.length > 150 ? '...' : ''}"`);
+    const startTime = Date.now();
+    
+    scriptTrackingResult = await processScriptChunk(combinedChunk);
+    
+    const elapsed = Date.now() - startTime;
+    console.log(`⏱️  Script tracking took ${elapsed}ms`);
+    
+    if (scriptTrackingResult.deviation.deviation) {
+      console.log(`⚠️  Script deviation: ${scriptTrackingResult.deviation.type}`);
+      console.log(`   ${scriptTrackingResult.deviation.message}`);
+    }
+    
+    console.log(`📊 Script progress: ${scriptTrackingResult.scriptState.progress}%`);
+    console.log(`   Current: Section ${scriptTrackingResult.scriptState.currentSection}, Subsection: ${scriptTrackingResult.scriptState.currentSubsection}`);
+    console.log(`   Completed sections:`, Object.keys(scriptTrackingResult.scriptState.completedSections).filter(id => scriptTrackingResult.scriptState.completedSections[id]));
+    console.log(`   Completed subsections:`, Object.keys(scriptTrackingResult.scriptState.completedSubsections).filter(id => scriptTrackingResult.scriptState.completedSubsections[id]));
+  } catch (error) {
+    console.error('❌ Error in script tracking:', error);
+    console.error('   Stack:', error.stack);
+  }
+  
+  // ============================================
+  // 3. CULTURAL FIT (seulement pour candidat)
+  // ============================================
+  let culturalFitResult = null;
+  if (speaker === 'candidate') {
     try {
-      console.log('📋 Running script tracking...');
+      console.log('🎯 Running cultural fit evaluation...');
       const startTime = Date.now();
       
-      scriptTrackingResult = await processScriptChunk(transcriptChunk);
+      // Préparer l'historique (résumé des chunks précédents)
+      const historySummary = recentContext.slice(-10).join(' ').substring(0, 500);
+      
+      culturalFitResult = await evaluateCulturalFit({
+        latest_chunk: transcriptChunk,
+        history_summary: historySummary,
+        previous_score: culturalFitScore
+      });
+      
+      // Mettre à jour le score
+      culturalFitScore = culturalFitResult.cultural_score;
       
       const elapsed = Date.now() - startTime;
-      console.log(`⏱️  Script tracking took ${elapsed}ms`);
+      console.log(`⏱️  Cultural fit evaluation took ${elapsed}ms`);
+      console.log(`📊 Cultural fit score: ${culturalFitScore.toFixed(1)} (${culturalFitResult.label})`);
       
-      if (scriptTrackingResult.deviation.deviation) {
-        console.log(`⚠️  Script deviation: ${scriptTrackingResult.deviation.type}`);
-        console.log(`   ${scriptTrackingResult.deviation.message}`);
+      if (culturalFitResult.signals.length > 0) {
+        console.log(`   Signals: ${culturalFitResult.signals.length} detected`);
       }
-      
-      console.log(`📊 Script progress: ${scriptTrackingResult.scriptState.progress}%`);
-      console.log(`   Current: Section ${scriptTrackingResult.scriptState.currentSection}`);
     } catch (error) {
-      console.error('❌ Error in script tracking:', error);
+      console.error('❌ Error in cultural fit evaluation:', error);
     }
   }
   
   // ============================================
-  // 3. COMBINER LES RÉSULTATS
+  // 4. COMBINER LES RÉSULTATS
   // ============================================
   const result = {
     contradiction: contradictionOutput,
     scriptTracking: scriptTrackingResult,
+    culturalFit: culturalFitResult,
     metadata: {
       chunkNumber: chunkCounter,
       speaker,
@@ -153,8 +224,13 @@ export async function processTranscriptChunk(transcriptChunk, speaker, wss) {
  */
 export function resetState() {
   contradictionScore = 100;
+  culturalFitScore = 50;
   recentContext = [];
   chunkCounter = 0;
+  scriptChunkHistory = {
+    candidate: [],
+    recruiter: []
+  };
   resetFacts();
   resetScriptTracker();
   console.log('🔄 All states reset for new interview');

@@ -2,7 +2,7 @@
  * Interview Script Definition
  * 
  * Hardcoded reference script for interview tracking.
- * Contains 6 main sections with their subsections.
+ * Contains 5 main sections with their subsections.
  */
 
 export type Section = {
@@ -47,30 +47,20 @@ export const INTERVIEW_SCRIPT: Section[] = [
   },
   {
     id: 4,
-    name: 'Collaboration & Culture',
+    name: 'Candidate Questions',
     subsections: [
-      { id: '4.1', label: 'Feedback culture' },
-      { id: '4.2', label: 'Communication habits' },
-      { id: '4.3', label: 'Ownership / autonomy' },
-      { id: '4.4', label: 'Conflicts / learning' }
+      { id: '4.1', label: 'Questions about the team' },
+      { id: '4.2', label: 'Questions about the roadmap' },
+      { id: '4.3', label: 'Questions about compensation / process' }
     ]
   },
   {
     id: 5,
-    name: 'Candidate Questions',
-    subsections: [
-      { id: '5.1', label: 'Questions about the team' },
-      { id: '5.2', label: 'Questions about the roadmap' },
-      { id: '5.3', label: 'Questions about compensation / process' }
-    ]
-  },
-  {
-    id: 6,
     name: 'Closing',
     subsections: [
-      { id: '6.1', label: 'Summary' },
-      { id: '6.2', label: 'Next steps' },
-      { id: '6.3', label: 'Thank you / closing remarks' }
+      { id: '5.1', label: 'Summary' },
+      { id: '5.2', label: 'Next steps' },
+      { id: '5.3', label: 'Thank you / closing remarks' }
     ]
   }
 ];

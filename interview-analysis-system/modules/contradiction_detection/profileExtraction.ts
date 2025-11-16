@@ -25,19 +25,20 @@ config({ path: join(projectRoot, 'cultural_fit', '.env') }); // cultural_fit/.en
 config({ path: join(projectRoot, 'modules', 'cultural_fit', '.env') }); // modules/cultural_fit/.env
 
 /**
- * Call LLM for profile extraction using OpenAI
+ * Call LLM for profile extraction using Anthropic
  */
 async function callLLMForProfileExtraction(systemPrompt: string, userMessage: string): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY not found in environment variables');
+    throw new Error('GROQ_API_KEY not found in environment variables');
   }
 
-  const model = process.env.LLM_MODEL || 'gpt-4o'; // Default to GPT-4o
+  // Force Groq model, ignore LLM_MODEL env var
+  const model = 'meta-llama/llama-4-maverick-17b-128e-instruct';
   
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -51,30 +52,27 @@ async function callLLMForProfileExtraction(systemPrompt: string, userMessage: st
         ],
         temperature: 0.1,
         max_tokens: 300,
-        top_p: 1,
-        response_format: { type: 'json_object' } // Force JSON output
+        response_format: { type: 'json_object' }
       })
     });
-    
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error response:', errorText);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      console.error('Groq API error response:', errorText);
+      throw new Error(`Groq API error: ${response.status} - ${errorText}`);
     }
-    
-    // OpenAI API returns JSON directly (non-streaming)
+
     const data = await response.json();
+
     const choice = data.choices?.[0];
-    
     if (!choice?.message?.content) {
-      throw new Error('OpenAI API returned empty content');
+      throw new Error('Groq API returned empty content');
     }
-    
-    // OpenAI with response_format: json_object should return pure JSON
+
     return choice.message.content.trim();
   } catch (error) {
     if (error instanceof Error) {
-      throw new Error(`OpenAI API error: ${error.message}`);
+      throw new Error(`Groq API error: ${error.message}`);
     }
     throw error;
   }

@@ -22,20 +22,20 @@ config({ path: join(projectRoot, 'Modules', '.env') }); // /Modules/.env
 config({ path: join(projectRoot, 'modules', '.env') }); // /modules/.env
 
 /**
- * Call LLM for profile consistency check using OpenAI
+ * Call LLM for profile consistency check using Anthropic
  */
 async function callLLMForProfileConsistency(systemPrompt: string, userMessage: string): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY not found in environment variables');
+    throw new Error('GROQ_API_KEY not found in environment variables');
   }
 
-  // Use GPT-4o (or gpt-4o-mini for faster/cheaper)
-  const model = process.env.LLM_MODEL || 'gpt-4o';
+  // Force Groq model, ignore LLM_MODEL env var
+  const model = 'meta-llama/llama-4-maverick-17b-128e-instruct';
   
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -49,28 +49,27 @@ async function callLLMForProfileConsistency(systemPrompt: string, userMessage: s
         ],
         temperature: 0.1,
         max_tokens: 300,
-        top_p: 1,
-        response_format: { type: 'json_object' } // Force JSON output
+        response_format: { type: 'json_object' }
       })
     });
-    
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error response:', errorText);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      console.error('Groq API error response:', errorText);
+      throw new Error(`Groq API error: ${response.status} - ${errorText}`);
     }
-    
+
     const data = await response.json();
+
     const choice = data.choices?.[0];
-    
     if (!choice?.message?.content) {
-      throw new Error('OpenAI API returned empty content');
+      throw new Error('Groq API returned empty content');
     }
-    
+
     return choice.message.content.trim();
   } catch (error) {
     if (error instanceof Error) {
-      throw new Error(`OpenAI API error: ${error.message}`);
+      throw new Error(`Groq API error: ${error.message}`);
     }
     throw error;
   }

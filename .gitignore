@@ -7,10 +7,15 @@
 /cache
 /backups
 /archives
-/docs
 /tests
 /examples
 /demos
 /samples
 .env
 .DS_Store
+.vite/
+.vite
+.idea/
+.vscode/
+*.log
+*.tmp
