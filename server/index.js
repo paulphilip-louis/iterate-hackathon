@@ -1,157 +1,432 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'http';
-import { processTranscriptChunk, resetState } from './transcriptProcessor.js';
-import { processAudioChunk } from './sttService.js';
+import { WebSocketServer } from 'ws';
+import rateLimit from 'express-rate-limit';
+import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
+const elevenlabs = new ElevenLabsClient({
+  apiKey: process.env.ELEVENLABS_API_KEY,
+});
+
+const activeRequests = new Map();
+const pollingRequests = new Map();
+
+function pcmToWav(pcmBuffer, sampleRate = 16000, channels = 1, bitsPerSample = 16) {
+  const dataLength = pcmBuffer.length;
+  const headerLength = 44;
+  const fileSize = headerLength + dataLength - 8;
+  
+  const buffer = Buffer.alloc(headerLength + dataLength);
+  
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(fileSize, 4);
+  buffer.write('WAVE', 8);
+  buffer.write('fmt ', 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(channels, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * channels * bitsPerSample / 8, 28);
+  buffer.writeUInt16LE(channels * bitsPerSample / 8, 32);
+  buffer.writeUInt16LE(bitsPerSample, 34);
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(dataLength, 40);
+  pcmBuffer.copy(buffer, headerLength);
+  
+  return buffer;
+}
+
+// Poll for transcription results when not using webhooks
+function pollTranscriptionResult(requestId, ws, sessionId, audioSource) {
+  // Create a polling state object
+  const pollingData = { ws, sessionId, audioSource: audioSource || null, pollInterval: null };
+  
+  pollingRequests.set(requestId, pollingData);
+  
+  pollingData.pollInterval = setInterval(async () => {
+    try {
+      if (!pollingRequests.has(requestId)) {
+        clearInterval(pollingData.pollInterval);
+        return;
+      }
+
+      const response = await fetch(
+        `https://api.elevenlabs.io/v1/speech-to-text/${requestId}`,
+        {
+          method: 'GET',
+          headers: {
+            'xi-api-key': process.env.ELEVENLABS_API_KEY,
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Request not found');
+        }
+        throw new Error(`API returned ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      // Handle different response formats
+      let transcriptionData = null;
+      if (result.status === 'completed') {
+        if (result.transcription) {
+          transcriptionData = result.transcription;
+        } else if (result.text || result.words) {
+          // Alternative format - data at root level
+          transcriptionData = {
+            text: result.text,
+            language_code: result.languageCode || result.language_code,
+            language_probability: result.languageProbability || result.language_probability,
+            words: result.words,
+          };
+        }
+      }
+
+      if (transcriptionData) {
+        const requestData = pollingRequests.get(requestId);
+        const sourceLabel = requestData?.audioSource ? ` (${requestData.audioSource})` : '';
+        console.log(`✅ Transcription ${requestId} completed (polling)${sourceLabel}`);
+        console.log(`   Audio type: ${requestData?.audioSource || 'unknown'}`);
+        console.log(`   Text: ${transcriptionData.text}`);
+        
+        // Send result via WebSocket if available
+        if (requestData && requestData.ws && requestData.ws.readyState === 1) {
+          requestData.ws.send(JSON.stringify({
+            type: 'transcription_completed',
+            requestId: requestId,
+            audioSource: requestData.audioSource || null, // Include audio source
+            transcription: {
+              text: transcriptionData.text,
+              language_code: transcriptionData.language_code,
+              language_probability: transcriptionData.language_probability,
+              words: transcriptionData.words,
+            },
+          }));
+        }
+        
+        clearInterval(pollingData.pollInterval);
+        pollingRequests.delete(requestId);
+      } else if (result.status === 'failed') {
+        console.error(`❌ Transcription ${requestId} failed`);
+        clearInterval(pollingData.pollInterval);
+        pollingRequests.delete(requestId);
+      }
+    } catch (error) {
+      console.error(`❌ Error polling transcription ${requestId}:`, error);
+      if (error.message === 'Request not found' || (error.statusCode === 404)) {
+        clearInterval(pollingData.pollInterval);
+        pollingRequests.delete(requestId);
+      }
+    }
+  }, 2000);
+}
+
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGIN || '*', // remove on prod
+  origin: process.env.ALLOWED_ORIGIN || '*',
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
-// Health check
+const webhookLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: 'Too many webhook requests from this IP',
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Audio receiver server is running' });
 });
 
-// Create HTTP server
-const server = createServer(app);
-
-// Create WebSocket server for receiving audio
-const wss = new WebSocketServer({ 
-  server,
-  path: '/ws/audio'
+app.post('/webhook/speech-to-text', webhookLimiter, async (req, res) => {
+  try {
+    console.log('📨 Webhook received:', req.body);
+    
+    const signature = req.headers['elevenlabs-signature'];
+    const payload = JSON.stringify(req.body);
+    
+    if (process.env.WEBHOOK_SECRET) {
+      try {
+        await elevenlabs.webhooks.constructEvent(payload, signature, process.env.WEBHOOK_SECRET);
+      } catch (error) {
+        console.error('❌ Invalid webhook signature:', error);
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+    }
+    
+    const event = req.body;
+    
+    if (event.type === 'speech_to_text_transcription') {
+      const { request_id, transcription } = event.data;
+      
+      // Find the associated WebSocket connection
+      const requestData = activeRequests.get(request_id);
+      const sourceLabel = requestData?.audioSource ? ` (${requestData.audioSource})` : '';
+      
+      console.log(`✅ Transcription ${request_id} completed${sourceLabel}`);
+      console.log(`   Audio type: ${requestData?.audioSource || 'unknown'}`);
+      console.log(`   Language: ${transcription.language_code}`);
+      console.log(`   Text: ${transcription.text}`);
+      
+      if (requestData && requestData.ws) {
+        requestData.ws.send(JSON.stringify({
+          type: 'transcription_completed',
+          requestId: request_id,
+          audioSource: requestData.audioSource || null, // Include audio source
+          transcription: {
+            text: transcription.text,
+            language_code: transcription.language_code,
+            language_probability: transcription.language_probability,
+            words: transcription.words,
+          },
+        }));
+        
+        activeRequests.delete(request_id);
+      } else {
+        console.warn(`⚠️ No active WebSocket connection found for request ${request_id}`);
+      }
+      
+      res.status(200).json({ received: true });
+    } else {
+      console.log('ℹ️ Unknown webhook event type:', event.type);
+      res.status(200).json({ received: true });
+    }
+  } catch (error) {
+    console.error('❌ Webhook error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
-// Track statistics
-let connectionCount = 0;
-let messageCount = 0;
-let audioChunkCount = 0;
+const server = createServer(app);
 
-wss.on('connection', (clientWs, req) => {
-  connectionCount++;
-  const clientId = connectionCount;
-  console.log(`\n✅ Client #${clientId} connected from ${req.socket.remoteAddress}`);
-  
-  // Réinitialiser l'état pour une nouvelle interview
-  resetState();
-  
-  let clientMessageCount = 0;
-  let clientAudioChunks = 0;
-  const startTime = Date.now();
+const wss = new WebSocketServer({ server });
 
-  // Handle incoming messages
-  clientWs.on('message', async (data) => {
-    messageCount++;
-    clientMessageCount++;
+app.post('/speech-to-text/upload', async (req, res) => {
+  try {
+    if (!process.env.ELEVENLABS_API_KEY) {
+      return res.status(500).json({ error: "Server configuration error: API key not set" });
+    }
+
+    const { audioData, sessionId, requestId, audioSource } = req.body;
     
+    if (!audioData) {
+      return res.status(400).json({ error: "Audio data is required" });
+    }
+
+    // Validate audioSource if provided
+    if (audioSource && !['tab', 'microphone'].includes(audioSource)) {
+      return res.status(400).json({ error: "Invalid audioSource. Must be 'tab' or 'microphone'" });
+    }
+
+    // Convert base64 audio data to Buffer (this is PCM Int16 data from client)
+    const pcmBuffer = Buffer.from(audioData, 'base64');
+    
+    const wavBuffer = pcmToWav(pcmBuffer, 16000, 1, 16);
+
+    const useWebhook = process.env.USE_WEBHOOK === 'true';
+    const webhookUrl = process.env.WEBHOOK_URL || `http://localhost:${PORT}/webhook/speech-to-text`;
+    
+    const sourceLabel = audioSource ? ` (${audioSource})` : '';
+    // console.log(`📤 Sending audio${sourceLabel} to ElevenLabs STT API (webhook: ${useWebhook ? webhookUrl : 'disabled'}), WAV buffer size: ${wavBuffer.length} bytes`);
+    
+    const requestOptions = {
+      file: wavBuffer,
+      modelId: 'scribe_v2',
+      languageCode: 'en',
+    };
+
+    if (useWebhook) {
+      requestOptions.webhook = true;
+      requestOptions.webhookUrl = webhookUrl;
+    }
+
+    let result;
     try {
-      // Try to parse as JSON
-      if (data instanceof Buffer || typeof data === 'string') {
-        const message = JSON.parse(data.toString());
+      result = await elevenlabs.speechToText.convert(requestOptions);
+    } catch (error) {
+      if (useWebhook && error.statusCode === 400 && error.body?.detail?.status === 'no_webhooks_configured') {
+        console.warn('⚠️ Webhooks not configured in ElevenLabs dashboard, using synchronous mode');
+        result = await elevenlabs.speechToText.convert({
+          file: wavBuffer,
+          modelId: 'scribe_v2',
+          languageCode: 'en',
+        });
+      } else {
+        throw error;
+      }
+    }
+
+    let ws = null;
+    if (sessionId && wss) {
+      wss.clients.forEach((client) => {
+        if (client.sessionId === sessionId && client.readyState === 1) {
+          ws = client;
+        }
+      });
+    }
+
+    let actualRequestId = requestId || `req_${Date.now()}`;
+    let responseMessage = 'Transcription processed';
+
+    // Handle different response formats from ElevenLabs
+    // Format 1: result.transcription exists
+    // Format 2: transcription data is at root level (text, words, languageCode, etc.)
+    let transcriptionData = null;
+    
+    if (result.transcription) {
+      transcriptionData = result.transcription;
+    } else if (result.text || result.words) {
+      // Alternative format - data at root level
+      transcriptionData = {
+        text: result.text,
+        language_code: result.languageCode || result.language_code,
+        language_probability: result.languageProbability || result.language_probability,
+        words: result.words,
+      };
+    }
+
+    if (transcriptionData) {
+      // Synchronous response - transcription is already available
+      actualRequestId = result.requestId || result.transcriptionId || `sync_${Date.now()}`;
+      responseMessage = 'Transcription completed (synchronous mode)';
+      const sourceLabel = audioSource ? ` (${audioSource})` : '';
+      console.log(`✅ Transcription completed synchronously${sourceLabel}`);
+      console.log(`   Audio type: ${audioSource || 'unknown'}`);
+      console.log('transcriptionData: ', transcriptionData);
+      console.log(`   Text: ${transcriptionData.text}`);
+
+      // TODO: send websocket event to all 3 services
+      if (audioSource === "microphone") { // Meaning recruiter
+
+      } else if (audioSource === "tab") { // Meaning applicant
         
-        if (message.type === 'audio') {
-          audioChunkCount++;
-          clientAudioChunks++;
-          
-          // Log audio chunk received
-          const audioSize = message.audio ? message.audio.length : 0;
-          console.log(`📦 [Client #${clientId}] Audio chunk #${clientAudioChunks} received (${audioSize} bytes base64)`);
-          
-          // ⚠️ NOUVEAU : Traiter l'audio avec STT et envoyer au module de détection
-          try {
-            const sttResult = await processAudioChunk(message.audio);
-            
-            // Si on a un transcript et que c'est le candidat, traiter
-            if (sttResult.chunk && sttResult.speaker === 'candidate') {
-              console.log(`🎤 [Client #${clientId}] Transcript: "${sttResult.chunk.substring(0, 50)}..."`);
-              await processTranscriptChunk(sttResult.chunk, wss);
-            }
-          } catch (error) {
-            console.error(`❌ [Client #${clientId}] Error processing audio with STT:`, error);
-          }
-          
-          // Send acknowledgment back to client
-          if (clientWs.readyState === WebSocket.OPEN) {
-            clientWs.send(JSON.stringify({
-              type: 'ack',
-              message: 'Audio chunk received successfully',
-              chunkNumber: clientAudioChunks
-            }));
-          }
-        } else if (message.type === 'transcript_chunk') {
-          // ⚠️ NOUVEAU : Traitement des chunks de transcript pour détection de contradictions
-          const transcriptChunk = message.chunk;
-          const speaker = message.speaker; // 'candidate' ou 'recruiter'
-          
-          console.log(`📝 [Client #${clientId}] Transcript chunk received (speaker: ${speaker})`);
-          
-          // Ne traiter que les chunks du candidat
-          if (speaker === 'candidate') {
-            try {
-              // ⚠️ C'EST ICI QUE TOUT SE PASSE : Traitement et envoi automatique au frontend
-              await processTranscriptChunk(transcriptChunk, wss);
-            } catch (error) {
-              console.error(`❌ [Client #${clientId}] Error processing transcript chunk:`, error);
-            }
-          }
-        } else if (message.type === 'config') {
-          console.log(`⚙️  [Client #${clientId}] Configuration received:`, message.config);
-        } else {
-          console.log(`📨 [Client #${clientId}] Message received:`, message.type || 'unknown');
+      }
+      
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({
+          type: 'transcription_completed',
+          requestId: actualRequestId,
+          audioSource: audioSource || null, // Include audio source
+          transcription: {
+            text: transcriptionData.text,
+            language_code: transcriptionData.language_code,
+            language_probability: transcriptionData.language_probability,
+            words: transcriptionData.words,
+          },
+        }));
+      }
+    } else if (result.requestId) {
+      actualRequestId = result.requestId;
+      responseMessage = useWebhook ? 'Transcription started (webhook mode)' : 'Transcription started (polling mode)';
+      console.log(`✅ Transcription started: ${actualRequestId}`);
+
+      if (useWebhook && ws) {
+        activeRequests.set(actualRequestId, {
+          ws,
+          sessionId: sessionId || 'default',
+          audioSource: audioSource || null, // Store audio source
+          chunks: [],
+        });
+      } else if (ws) {
+        // Polling mode - start polling for results
+        pollTranscriptionResult(actualRequestId, ws, sessionId || 'default', audioSource);
+      }
+    } else {
+      // Try to handle the alternative format one more time
+      if (result.text || result.words) {
+        const transcriptionData = {
+          text: result.text,
+          language_code: result.languageCode || result.language_code,
+          language_probability: result.languageProbability || result.language_probability,
+          words: result.words,
+        };
+        
+        const sourceLabel = audioSource ? ` (${audioSource})` : '';
+        console.log(`✅ Transcription completed${sourceLabel} (alternative format)`);
+        console.log(`   Audio type: ${audioSource || 'unknown'}`);
+        console.log(`   Text: ${transcriptionData.text}`);
+        
+        if (ws && ws.readyState === 1) {
+          ws.send(JSON.stringify({
+            type: 'transcription_completed',
+            requestId: result.transcriptionId || actualRequestId,
+            audioSource: audioSource || null,
+            transcription: transcriptionData,
+          }));
         }
       } else {
-        console.log(`📦 [Client #${clientId}] Binary data received (${data.length} bytes)`);
+        console.warn('⚠️ Unexpected response format from ElevenLabs API:', result);
+      }
+    }
+
+    res.json({ 
+      requestId: actualRequestId,
+      message: responseMessage,
+      audioSource: audioSource || null,
+    });
+  } catch (error) {
+    console.error('❌ Error in /speech-to-text/upload:', error);
+    res.status(500).json({ error: `Internal server error: ${error.message}` });
+  }
+});
+
+wss.on('connection', (ws, req) => {
+  const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  console.log(`🔌 WebSocket connected: ${sessionId}`);
+  
+  ws.sessionId = sessionId;
+  
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message.toString());
+      
+      if (data.type === 'register_session') {
+        console.log(`📝 Session registered: ${sessionId}`);
+        ws.send(JSON.stringify({
+          type: 'session_registered',
+          sessionId: sessionId,
+        }));
       }
     } catch (error) {
-      // If not JSON, treat as binary audio data
-      audioChunkCount++;
-      clientAudioChunks++;
-      console.log(`📦 [Client #${clientId}] Binary audio chunk #${clientAudioChunks} received (${data.length} bytes)`);
-      
-      // Send acknowledgment
-      if (clientWs.readyState === WebSocket.OPEN) {
-        clientWs.send(JSON.stringify({
-          type: 'ack',
-          message: 'Binary audio chunk received successfully',
-          chunkNumber: clientAudioChunks
-        }));
+      console.error('❌ Error processing WebSocket message:', error);
+    }
+  });
+  
+  ws.on('close', () => {
+    console.log(`🔌 WebSocket disconnected: ${sessionId}`);
+    for (const [requestId, data] of activeRequests.entries()) {
+      if (data.sessionId === sessionId) {
+        activeRequests.delete(requestId);
+      }
+    }
+    for (const [requestId, data] of pollingRequests.entries()) {
+      if (data.sessionId === sessionId) {
+        if (data.pollInterval) {
+          clearInterval(data.pollInterval);
+        }
+        pollingRequests.delete(requestId);
       }
     }
   });
-
-  // Handle errors
-  clientWs.on('error', (error) => {
-    console.error(`❌ [Client #${clientId}] WebSocket error:`, error.message);
+  
+  ws.on('error', (error) => {
+    console.error(`❌ WebSocket error for ${sessionId}:`, error);
   });
-
-  // Handle close
-  clientWs.on('close', (code, reason) => {
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`\n🔌 [Client #${clientId}] Disconnected`);
-    console.log(`   Duration: ${duration}s`);
-    console.log(`   Total messages: ${clientMessageCount}`);
-    console.log(`   Audio chunks: ${clientAudioChunks}`);
-    console.log(`   Close code: ${code}, reason: ${reason.toString()}\n`);
-  });
-
-  // Send welcome message
-  clientWs.send(JSON.stringify({
-    type: 'connected',
-    message: 'Connected to audio receiver server',
-    clientId: clientId
-  }));
 });
 
 server.listen(PORT, () => {
   console.log(`\n🚀 Audio Receiver Server`);
   console.log(`   HTTP: http://localhost:${PORT}`);
-  console.log(`   WebSocket: ws://localhost:${PORT}/ws/audio`);
-  console.log(`   Health check: http://localhost:${PORT}/health\n`);
+  console.log(`   WebSocket: ws://localhost:${PORT}`);
+  console.log(`   Health check: http://localhost:${PORT}/health`);
+  console.log(`   Upload endpoint: http://localhost:${PORT}/speech-to-text/upload`);
+  console.log(`   Webhook endpoint: http://localhost:${PORT}/webhook/speech-to-text\n`);
+  console.log(`⚠️  Make sure to set WEBHOOK_URL in .env if your server is not accessible at http://localhost:${PORT}`);
 });

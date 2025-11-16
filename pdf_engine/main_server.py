@@ -5,10 +5,12 @@ Provides WebSocket endpoint for real-time generation and HTTP endpoint for downl
 """
 import os
 import logging
+import base64
+import json
 from datetime import datetime
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from scorecard_api import generate_scorecard
 
@@ -102,23 +104,28 @@ async def websocket_endpoint(websocket: WebSocket):
             logger.error(f"Generation failed: {result.get('error')}")
             return
         
-        await websocket.send_text("Status: Saving PDF...")
+        await websocket.send_text("Status: PDF generated. Sending PDF...")
         
-        # Save PDF to the generated_pdfs directory
+        # Send PDF as JSON with base64 encoded bytes
         if result['pdf_bytes']:
             filename = f"report_{result['timestamp']}.pdf"
-            pdf_path = os.path.join(PDF_OUTPUT_DIR, filename)
             
-            with open(pdf_path, 'wb') as f:
-                f.write(result['pdf_bytes'])
+            # Encode PDF bytes to base64
+            pdf_base64 = base64.b64encode(result['pdf_bytes']).decode('utf-8')
             
-            logger.info(f"PDF saved: {pdf_path}")
+            # Create JSON event matching the schema
+            pdf_event = {
+                "type": "event",
+                "event": "PDF_GENERATED",
+                "payload": {
+                    "filename": filename,
+                    "pdfBytes": pdf_base64
+                }
+            }
             
-            # Send success response
-            download_url = f"/download/{filename}"
-            success_msg = f"SUCCESS|PDF generated successfully|{download_url}"
-            await websocket.send_text(success_msg)
-            logger.info(f"Generation complete: {download_url}")
+            # Send JSON event
+            await websocket.send_text(json.dumps(pdf_event))
+            logger.info(f"PDF event sent ({len(result['pdf_bytes'])} bytes, base64: {len(pdf_base64)} chars)")
         else:
             error_msg = "ERROR|PDF generation failed - no PDF bytes returned"
             await websocket.send_text(error_msg)
