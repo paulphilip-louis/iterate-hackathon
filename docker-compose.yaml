@@ -6,6 +6,8 @@ services:
     container_name: flags
     ports:
       - "8080:8080"
+    env_file:
+      - ./interview-analysis-system/.env
     environment:
       - NODE_ENV=production
       - PORT=8080
@@ -41,9 +43,12 @@ services:
     container_name: pdf_engine
     ports:
       - "8000:8000"
+    env_file:
+      - ./.env
     environment:
       - PORT=8000
       - LOG_LEVEL=INFO
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     volumes:
       - ./pdf_engine:/app
     networks:
