@@ -1,5 +1,5 @@
 import { Separator } from "@/components/ui/separator";
-import { Flag as FlagIcon } from "lucide-react";
+import { Flag as FlagIcon, HelpCircle, BookOpen } from "lucide-react";
 import { useMeeting } from "@/hooks/useMeeting";
 import { useInterviewAnalysis } from "@/hooks/useInterviewAnalysis";
 import {
@@ -12,11 +12,18 @@ import {
 function DefineList({ defines }: { defines: Define[] }) {
   return (
     <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
-      {defines.map((define) => (
-        <p key={define.id} className="animate-slide-in">
-          {define.message}
-        </p>
-      ))}
+      {defines.length > 0 ? (
+        defines.map((define) => (
+          <p key={define.id} className="animate-slide-in">
+            {define.message}
+          </p>
+        ))
+      ) : (
+        <div className="flex flex-col items-center justify-center flex-1 min-h-0 text-gray-400">
+          <BookOpen className="w-12 h-12 mb-2 opacity-50" />
+          <p className="text-sm">No definitions yet</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -28,11 +35,18 @@ function SuggestedQuestionList({
 }) {
   return (
     <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
-      {questions.map((question) => (
-        <p key={question.id} className="animate-slide-in">
-          {question.message}
-        </p>
-      ))}
+      {questions.length > 0 ? (
+        questions.map((question) => (
+          <p key={question.id} className="animate-slide-in">
+            {question.message}
+          </p>
+        ))
+      ) : (
+        <div className="flex flex-col items-center justify-center flex-1 min-h-0 text-gray-400">
+          <HelpCircle className="w-12 h-12 mb-2 opacity-50" />
+          <p className="text-sm">No suggested questions yet</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -40,16 +54,26 @@ function SuggestedQuestionList({
 function FlagList({ flags }: { flags: Flag[] }) {
   return (
     <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
-      {flags.map((flag) => (
-        <div key={flag.id} className="flex items-center gap-2 animate-slide-in">
-          <FlagIcon
-            className={`w-4 h-4 ${
-              flag.isGreen ? "text-green-500" : "text-red-500"
-            }`}
-          />
-          <p>{flag.message}</p>
+      {flags.length > 0 ? (
+        flags.map((flag) => (
+          <div
+            key={flag.id}
+            className="flex items-center gap-2 animate-slide-in"
+          >
+            <FlagIcon
+              className={`w-4 h-4 ${
+                flag.isGreen ? "text-green-500" : "text-red-500"
+              }`}
+            />
+            <p>{flag.message}</p>
+          </div>
+        ))
+      ) : (
+        <div className="flex flex-col items-center justify-center flex-1 min-h-0 text-gray-400">
+          <FlagIcon className="w-12 h-12 mb-2 opacity-50" />
+          <p className="text-sm">No flags yet</p>
         </div>
-      ))}
+      )}
     </div>
   );
 }
