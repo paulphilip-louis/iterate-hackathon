@@ -11,8 +11,8 @@ import { INTERVIEW_SCRIPT } from './interviewScript';
 /**
  * Detect deviation from expected script flow
  * 
- * @param prevSection - Previous section number (1-6)
- * @param newSection - New section number (1-6) or null if not classifiable
+ * @param prevSection - Previous section number (1-5)
+ * @param newSection - New section number (1-5) or null if not classifiable
  * @param isOffScript - Whether the topic is off-script
  * @returns Deviation detection result
  */
@@ -40,7 +40,7 @@ export function detectDeviation(
   }
 
   // Validate section range
-  if (newSection < 1 || newSection > 6) {
+  if (newSection < 1 || newSection > 5) {
     return {
       deviation: true,
       type: 'off_script',
