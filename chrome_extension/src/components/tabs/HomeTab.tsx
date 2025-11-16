@@ -1,24 +1,13 @@
 import { Separator } from "@/components/ui/separator";
-import { useState } from "react";
 import { Flag as FlagIcon } from "lucide-react";
 import { useMeeting } from "@/hooks/useMeeting";
 import { useInterviewAnalysis } from "@/hooks/useInterviewAnalysis";
-
-interface Flag {
-  id: string;
-  isGreen: boolean;
-  message: string;
-}
-
-interface SuggestedQuestion {
-  id: string;
-  message: string;
-}
-
-interface Define {
-  id: string;
-  message: string;
-}
+import {
+  useMeetingEvents,
+  type Define,
+  type Flag,
+  type SuggestedQuestion,
+} from "@/contexts/MeetingEventsContext";
 
 function DefineList({ defines }: { defines: Define[] }) {
   return (
@@ -68,59 +57,31 @@ function FlagList({ flags }: { flags: Flag[] }) {
 export function HomeTab() {
   console.log("🏠 HomeTab component rendered");
 
-  const [defines, setDefines] = useState<Define[]>([]);
-  const [questions, setQuestions] = useState<SuggestedQuestion[]>([]);
-  const [manualFlags, setManualFlags] = useState<Flag[]>([]);
+  // Get persistent state from context
+  const {
+    questions,
+    flags: contextFlags,
+    defines,
+    addQuestion,
+    addFlag,
+    addDefine,
+  } = useMeetingEvents();
 
   // Get flags from interview analysis service
-  // Script state is now updated directly in the context by useInterviewAnalysis
   const { flags: analysisFlags } = useInterviewAnalysis();
 
   console.log(`🏁 HomeTab: analysisFlags count = ${analysisFlags.length}`);
+  console.log(`🏁 HomeTab: contextFlags count = ${contextFlags.length}`);
 
-  // Combine manual flags (from useMeeting) with analysis flags
-  const flags = [...analysisFlags, ...manualFlags];
+  // Combine analysis flags (from interview analysis service) with manual flags (from context/useMeeting)
+  const flags = [...analysisFlags, ...contextFlags];
   console.log(`🚩 HomeTab: total flags = ${flags.length}`);
 
-  const handleNewSuggestedQuestion = (question: string) => {
-    const newQuestion: SuggestedQuestion = {
-      id: Date.now().toString(),
-      message: question,
-    };
-    setQuestions((prev) => [newQuestion, ...prev]);
-  };
-
-  const handleGreenFlag = (message: string) => {
-    const newFlag: Flag = {
-      id: Date.now().toString(),
-      isGreen: true,
-      message,
-    };
-    setManualFlags((prev) => [newFlag, ...prev]);
-  };
-
-  const handleRedFlag = (message: string) => {
-    const newFlag: Flag = {
-      id: Date.now().toString(),
-      isGreen: false,
-      message,
-    };
-    setManualFlags((prev) => [newFlag, ...prev]);
-  };
-
-  const handleDefineTerm = (term: string, definition: string) => {
-    const newDefine: Define = {
-      id: Date.now().toString(),
-      message: `${term}: ${definition}`,
-    };
-    setDefines((prev) => [newDefine, ...prev]);
-  };
-
   useMeeting({
-    onNewSuggestedQuestion: handleNewSuggestedQuestion,
-    onGreenFlag: handleGreenFlag,
-    onRedFlag: handleRedFlag,
-    onDefineTerm: handleDefineTerm,
+    onNewSuggestedQuestion: addQuestion,
+    onGreenFlag: (message) => addFlag(true, message),
+    onRedFlag: (message) => addFlag(false, message),
+    onDefineTerm: addDefine,
   });
 
   return (

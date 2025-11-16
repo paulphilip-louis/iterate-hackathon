@@ -4,13 +4,16 @@ import "./index.css";
 import { StrictMode } from "react";
 import { TranscriptProvider } from "./contexts/TranscriptContext";
 import { MeetingEventsProvider } from "./contexts/MeetingEventsContext";
+import { ScriptProvider } from "./contexts/ScriptContext";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TranscriptProvider>
-      <MeetingEventsProvider>
-        <App />
-      </MeetingEventsProvider>
+      <ScriptProvider>
+        <MeetingEventsProvider>
+          <App />
+        </MeetingEventsProvider>
+      </ScriptProvider>
     </TranscriptProvider>
   </StrictMode>
 );
