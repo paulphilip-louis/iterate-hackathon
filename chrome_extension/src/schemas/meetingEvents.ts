@@ -67,14 +67,23 @@ export const redFlagSchema = z.object({
   }),
 });
 
-export const defineTermSchema = z.object({
-  type: z.literal("event"),
-  event: z.literal("DEFINE_TERM"),
-  payload: z.object({
-    term: z.string(),
-    definition: z.string(),
+export const defineTermSchema = z.union([
+  z.object({
+    type: z.literal("event").optional(),
+    event: z.literal("DEFINE_TERM"),
+    payload: z.object({
+      term: z.string(),
+      definition: z.string(),
+    }),
   }),
-});
+  z.object({
+    event: z.literal("DEFINE_TERM"),
+    payload: z.object({
+      term: z.string(),
+      definition: z.string(),
+    }),
+  }),
+]);
 
 export const todoCreatedSchema = z.object({
   type: z.literal("event"),
