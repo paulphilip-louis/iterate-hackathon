@@ -6,8 +6,13 @@ import {
   useEffect,
 } from "react";
 import { globalCaptureManager } from "@/utils/globalCaptureManager";
+import {
+  sendToQuestionGen,
+  connectToQuestionGen,
+} from "@/utils/questionGenWebSocket";
+import { transcriptChunkSchema } from "@/schemas/meetingEvents";
 
-export type TranscriptSource = 'tab' | 'microphone';
+export type TranscriptSource = "tab" | "microphone";
 
 export interface Transcript {
   id: string;
@@ -71,12 +76,38 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
     if (!transcript.text || transcript.text.trim().length === 0) {
       return;
     }
-    addCommittedTranscript({
+
+    const committedTranscript = {
       id: transcript.id || Date.now().toString(),
       text: transcript.text,
       timestamp: transcript.timestamp || Date.now(),
       source: transcript.source, // Preserve source
-    });
+    };
+
+    addCommittedTranscript(committedTranscript);
+
+    // Send transcript chunk to question generation service
+    try {
+      const transcriptChunk = transcriptChunkSchema.parse({
+        event: "TRANSCRIPT_CHUNK",
+        payload: transcript.text,
+      });
+
+      // Ensure connection and send
+      connectToQuestionGen()
+        .then(() => {
+          sendToQuestionGen(transcriptChunk);
+          console.log(
+            "📤 Sent transcript chunk to question generation service:",
+            transcript.text
+          );
+        })
+        .catch((error) => {
+          console.error("❌ Failed to send transcript chunk:", error);
+        });
+    } catch (error) {
+      console.error("❌ Error creating transcript chunk:", error);
+    }
   };
 
   // Update global callbacks immediately when provider mounts

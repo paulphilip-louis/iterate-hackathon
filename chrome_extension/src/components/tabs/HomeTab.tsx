@@ -1,24 +1,13 @@
 import { Separator } from "@/components/ui/separator";
-import { useState } from "react";
 import { Button } from "../ui/button";
-import { Flag } from "lucide-react";
+import { Flag as FlagIcon } from "lucide-react";
 import { useMeeting } from "@/hooks/useMeeting";
-
-interface Flag {
-  id: string;
-  isGreen: boolean;
-  message: string;
-}
-
-interface SuggestedQuestion {
-  id: string;
-  message: string;
-}
-
-interface Define {
-  id: string;
-  message: string;
-}
+import {
+  useMeetingEvents,
+  type Define,
+  type Flag,
+  type SuggestedQuestion,
+} from "@/contexts/MeetingEventsContext";
 
 function DefineList({ defines }: { defines: Define[] }) {
   return (
@@ -53,7 +42,7 @@ function FlagList({ flags }: { flags: Flag[] }) {
     <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
       {flags.map((flag) => (
         <div key={flag.id} className="flex items-center gap-2 animate-slide-in">
-          <Flag
+          <FlagIcon
             className={`w-4 h-4 ${
               flag.isGreen ? "text-green-500" : "text-red-500"
             }`}
@@ -66,65 +55,30 @@ function FlagList({ flags }: { flags: Flag[] }) {
 }
 
 export function HomeTab() {
-  const [defines, setDefines] = useState<Define[]>([]);
-  const [questions, setQuestions] = useState<SuggestedQuestion[]>([]);
-  const [flags, setFlags] = useState<Flag[]>([]);
-
-  const handleNewSuggestedQuestion = (question: string) => {
-    const newQuestion: SuggestedQuestion = {
-      id: Date.now().toString(),
-      message: question,
-    };
-    setQuestions((prev) => [newQuestion, ...prev]);
-  };
-
-  const handleGreenFlag = (message: string) => {
-    const newFlag: Flag = {
-      id: Date.now().toString(),
-      isGreen: true,
-      message,
-    };
-    setFlags((prev) => [newFlag, ...prev]);
-  };
-
-  const handleRedFlag = (message: string) => {
-    const newFlag: Flag = {
-      id: Date.now().toString(),
-      isGreen: false,
-      message,
-    };
-    setFlags((prev) => [newFlag, ...prev]);
-  };
-
-  const handleDefineTerm = (term: string, definition: string) => {
-    const newDefine: Define = {
-      id: Date.now().toString(),
-      message: `${term}: ${definition}`,
-    };
-    setDefines((prev) => [newDefine, ...prev]);
-  };
+  const { questions, flags, defines, addQuestion, addFlag, addDefine } =
+    useMeetingEvents();
 
   useMeeting({
-    onNewSuggestedQuestion: handleNewSuggestedQuestion,
-    onGreenFlag: handleGreenFlag,
-    onRedFlag: handleRedFlag,
-    onDefineTerm: handleDefineTerm,
+    onNewSuggestedQuestion: addQuestion,
+    onGreenFlag: (message) => addFlag(true, message),
+    onRedFlag: (message) => addFlag(false, message),
+    onDefineTerm: addDefine,
   });
 
   const simulateSuggestedQuestion = () => {
-    handleNewSuggestedQuestion("What are your thoughts on remote work?");
+    addQuestion("What are your thoughts on remote work?");
   };
 
   const simulateGreenFlag = () => {
-    handleGreenFlag("Candidate shows strong communication skills");
+    addFlag(true, "Candidate shows strong communication skills");
   };
 
   const simulateRedFlag = () => {
-    handleRedFlag("Candidate seems unprepared for technical questions");
+    addFlag(false, "Candidate seems unprepared for technical questions");
   };
 
   const simulateDefineTerm = () => {
-    handleDefineTerm(
+    addDefine(
       "API",
       "Application Programming Interface - a set of protocols for building software"
     );

@@ -1,21 +1,4 @@
-version: '3.8'
-
 services:
-  # frontend:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.frontend
-  #   container_name: frontend
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     - NODE_ENV=production
-  #   volumes:
-  #     - ./frontend:/app
-  #   networks:
-  #     - app-network
-  #   restart: always
-
   flags:
     build:
       context: ./interview-analysis-system
@@ -34,20 +17,22 @@ services:
       - app-network
     restart: always
 
-  # suggested:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.suggested
-  #   container_name: suggested
-  #   ports:
-  #     - "3003:3003"
-  #   environment:
-  #     - NODE_ENV=production
-  #   volumes:
-  #     - ./suggested:/app
-  #   networks:
-  #     - app-network
-  #   restart: always
+  question-generation:
+    build: 
+      context: ./question_generation
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - LINKUP_API_KEY=${LINKUP_API_KEY}
+    volumes:
+      - ./question_generation:/app
+    working_dir: /app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - app-network
+    restart: always
 
   pdf_engine:
     build:
@@ -94,6 +79,7 @@ services:
     container_name: chrome_extension
     environment:
       - NODE_ENV=development
+      - VITE_QUESTION_GEN_WS_URL=${VITE_QUESTION_GEN_WS_URL:-ws://localhost:8001/ws}
     volumes:
       - ./chrome_extension:/app
       - chrome_extension_node_modules:/app/node_modules

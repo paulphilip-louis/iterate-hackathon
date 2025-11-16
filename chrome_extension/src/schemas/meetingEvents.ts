@@ -1,13 +1,42 @@
 import * as z from "zod";
 
-// Specific event schemas
-export const newSuggestedQuestionSchema = z.object({
-  type: z.literal("event"),
-  event: z.literal("NEW_SUGGESTED_QUESTION"),
+//===----------------------------------------------------------------------===//
+// Events that chrome extension sends
+//===----------------------------------------------------------------------===//
+
+export const candidateInfoSchema = z.object({
+  event: z.literal("CANDIDATE_INFOS"),
   payload: z.object({
-    question: z.string(),
+    CANDIDATES_LINKEDIN: z.string(),
+    JOB_DESCRIPTION: z.string(),
+    COMPANY_VALUES: z.string(),
   }),
 });
+
+export const transcriptChunkSchema = z.object({
+  event: z.literal("TRANSCRIPT_CHUNK"),
+  payload: z.string(),
+});
+
+//===----------------------------------------------------------------------===//
+// Events that chrome extension receives
+//===----------------------------------------------------------------------===//
+
+// Specific event schemas
+// Support both formats: with type field and without, with payload as object or string
+export const newSuggestedQuestionSchema = z.union([
+  z.object({
+    type: z.literal("event").optional(),
+    event: z.literal("NEW_SUGGESTED_QUESTION"),
+    payload: z.object({
+      question: z.string(),
+    }),
+  }),
+  z.object({
+    event: z.literal("NEW_SUGGESTED_QUESTION"),
+    payload: z.string(), // Direct string payload from question generation service
+  }),
+]);
 
 export const startingQuestionSchema = z.object({
   type: z.literal("event"),
@@ -73,7 +102,8 @@ export const pdfGeneratedSchema = z.object({
 });
 
 // Union of all event schemas
-export const meetingEventSchema = z.discriminatedUnion("event", [
+// Use union instead of discriminatedUnion to support flexible formats
+export const meetingEventSchema = z.union([
   newSuggestedQuestionSchema,
   greenFlagSchema,
   redFlagSchema,
@@ -92,3 +122,4 @@ export type DefineTermEvent = z.infer<typeof defineTermSchema>;
 export type TodoCreatedEvent = z.infer<typeof todoCreatedSchema>;
 export type TickTodoEvent = z.infer<typeof tickTodoSchema>;
 
+//===----------------------------------------------------------------------===//

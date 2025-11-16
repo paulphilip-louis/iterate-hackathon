@@ -3,6 +3,7 @@ import {
   meetingEventSchema,
   type MeetingEvent,
 } from "@/schemas/meetingEvents";
+import { onQuestionGenMessage } from "@/utils/questionGenWebSocket";
 
 // WebSocket URL for meeting events (3rd party service)
 const MEETING_WS_URL =
@@ -35,6 +36,23 @@ export function useMeeting(callbacks: UseMeetingCallbacks) {
   const maxReconnectAttempts = 5;
   const reconnectDelay = 3000; // 3 seconds
 
+  const send = useCallback((data: any) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        const message = typeof data === 'string' ? data : JSON.stringify(data);
+        wsRef.current.send(message);
+        console.log('📤 Sent WebSocket message:', data);
+        return true;
+      } catch (error) {
+        console.error('❌ Error sending WebSocket message:', error);
+        return false;
+      }
+    } else {
+      console.warn('⚠️ WebSocket is not connected. Cannot send message.');
+      return false;
+    }
+  }, []);
+
   const handleWebSocketMessage = useCallback(
     (event: MessageEvent) => {
       try {
@@ -50,10 +68,16 @@ export function useMeeting(callbacks: UseMeetingCallbacks) {
 
         const validatedEvent: MeetingEvent = result.data;
 
+        console.log("🔍 Validated event:", validatedEvent);
+
         // Handle different event types
         switch (validatedEvent.event) {
           case "NEW_SUGGESTED_QUESTION":
-            onNewSuggestedQuestion?.(validatedEvent.payload.question);
+            // Handle both payload formats: object with question field or direct string
+            const question = typeof validatedEvent.payload === 'string'
+              ? validatedEvent.payload
+              : validatedEvent.payload.question;
+            onNewSuggestedQuestion?.(question);
             break;
 
           case "GREEN_FLAG":
@@ -174,6 +198,47 @@ export function useMeeting(callbacks: UseMeetingCallbacks) {
   useEffect(() => {
     connect();
 
+    // Also listen to messages from question generation service
+    const unsubscribe = onQuestionGenMessage((data) => {
+      // Process the message through the same handler
+      try {
+        const result = meetingEventSchema.safeParse(data);
+        if (result.success) {
+          const validatedEvent: MeetingEvent = result.data;
+
+          // Handle different event types
+          switch (validatedEvent.event) {
+            case "NEW_SUGGESTED_QUESTION":
+              const question = typeof validatedEvent.payload === 'string'
+                ? validatedEvent.payload
+                : validatedEvent.payload.question;
+              onNewSuggestedQuestion?.(question);
+              break;
+            case "GREEN_FLAG":
+              onGreenFlag?.(validatedEvent.payload.message);
+              break;
+            case "RED_FLAG":
+              onRedFlag?.(validatedEvent.payload.message);
+              break;
+            case "DEFINE_TERM":
+              onDefineTerm?.(
+                validatedEvent.payload.term,
+                validatedEvent.payload.definition
+              );
+              break;
+            case "TODO_CREATED":
+              onTodoCreated?.(validatedEvent.payload.todos);
+              break;
+            case "TICK_TODO":
+              onTickTodo?.(validatedEvent.payload.id);
+              break;
+          }
+        }
+      } catch (error) {
+        console.error("Error processing question generation message:", error);
+      }
+    });
+
     return () => {
       // Cleanup: close WebSocket and clear reconnect timeout
       if (reconnectTimeoutRef.current) {
@@ -184,7 +249,10 @@ export function useMeeting(callbacks: UseMeetingCallbacks) {
         wsRef.current.close(1000, "Component unmounting");
         wsRef.current = null;
       }
+      unsubscribe();
     };
-  }, [connect]);
+  }, [connect, onNewSuggestedQuestion, onGreenFlag, onRedFlag, onDefineTerm, onTodoCreated, onTickTodo]);
+
+  return { send, isConnected: wsRef.current?.readyState === WebSocket.OPEN };
 }
 

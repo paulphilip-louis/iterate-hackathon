@@ -6,6 +6,11 @@ import { CompletionScreen } from "@/components/screens/CompletionScreen";
 import logoImage from "@/public/tomo-ai-logo.PNG";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
+import { candidateInfoSchema } from "@/schemas/meetingEvents";
+import {
+  connectToQuestionGen,
+  sendToQuestionGen,
+} from "@/utils/questionGenWebSocket";
 
 type AppStep = "form" | "audioCapture" | "home" | "completion";
 
@@ -14,6 +19,28 @@ function App() {
   const [formData, setFormData] = useState<FormData | null>(null);
 
   const handleFormSubmit = async (data: FormData) => {
+    // Connect to question generation service and send candidate info
+    connectToQuestionGen()
+      .then(() => {
+        const candidateInfo = candidateInfoSchema.parse({
+          event: "CANDIDATE_INFOS",
+          payload: {
+            CANDIDATES_LINKEDIN: data.candidateLinkedInUrl,
+            JOB_DESCRIPTION: data.jobDescription,
+            COMPANY_VALUES: data.companyValues,
+          },
+        });
+
+        sendToQuestionGen(candidateInfo);
+        console.log(
+          "📤 Sent candidate info to question generation service:",
+          candidateInfo
+        );
+      })
+      .catch((error) => {
+        console.error("❌ Error connecting/sending candidate info:", error);
+      });
+
     setFormData(data);
     setStep("audioCapture");
   };
