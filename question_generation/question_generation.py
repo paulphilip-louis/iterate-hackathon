@@ -1,5 +1,8 @@
+from typing import Any
 import re
 import ast
+import json
+from langchain_core.messages import SystemMessage
 
 def extract_linkedin(client, url):
     response = client.search(
@@ -37,25 +40,57 @@ def pdf_to_markdown(pdf_path):
 
     return "".join(markdown_content)
 
-def generate_questions(model, job_offer, candidate_profile):
+def generate_questions_beginning(model, context):
 
     messages = [
-        {"role": "system", "content": "You are a proficient job interviewer. You are given a job offer and a candidate's resume. Your goal is to suggest relevant questions to the candidate to clarify his fit for the job."},
-        {"role": "user", "content": "#Job offer : " + job_offer + "\n\n#Candidate profile : " + candidate_profile},
+        {"role": "system", "content": """You are a proficient job interviewer.
+            Suggest FIVE relevant introductory questions to the candidate to guide the interview in specific topics relevant to the job offer.
+            Make use of the job offer, the company values and the candidate\'s resume for maximum relevance.
+            KEEP THE QUESTIONS CONCISE AND TO THE POINT.
+            
+            CRITICAL OUTPUT FORMAT REQUIREMENTS:
+            - Output EXACTLY five questions
+            - Separate each question with the delimiter: " ||| "
+            - Do NOT include numbering (no 1., 2., etc.)
+            - Do NOT include any introductory text, explanations, or concluding remarks
+            - Do NOT use newlines between questions
+            - Your entire response must be ONLY the five questions separated by " ||| "
+            - YOUR OUTPUT MUST BE IN ASCII CHARACTER SET. NO em-dash.
+            Example format:
+            Question one here? ||| Question two here? ||| Question three here? ||| Question four here? ||| Question five here?"""},
+        {"role": "user", "content": context},
     ]
 
-    for chunk in model.stream(messages):
-        print(chunk.content, end="", flush=True)
+    response = model.invoke(messages).content
 
-    return model.stream(messages).answer
+    questions = response.split('|||')
+    questions = {i:question.strip() for i, question in enumerate(questions, start=1)}
 
-def generate_questions_online(model, context):
+    return json.dumps(questions)
+
+def generate_questions_online(model, context, transcript):
     messages = [
-        {'role': 'system', 'content': 'You are a proficient job interviewer. \
-            Identify the last topic covered in the transcript and suggest ONE relevant question about it to the candidate to clarify his fit for the job. \
-            Make use of the job offer, the company values and the candidate\'s resume for maximum relevance. \
-            You must return ONLY the question, without any other text.'},
-        {'role': 'user', 'content': context},
+        SystemMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": """You are a proficient job interviewer. 
+                    Identify the last topic covered in the transcript and suggest ONE relevant question about it to the candidate to clarify his fit for the job. 
+                    Make use of the job offer, the company values and the candidate's resume for maximum relevance. 
+                    You must return ONLY the question, without any other text. KEEP IT REALLY SHORT AND TO THE POINT.""",
+                    "cache_control": {"type": "ephemeral"}  # CACHE THIS
+                },
+                {
+                    "type": "text", 
+                    "text": context,  # Job + values + resume
+                    "cache_control": {"type": "ephemeral"}  # CACHE THIS
+                }
+            ]
+        ),
+        {
+            "role": "user", 
+            "content": f"TRANSCRIPT:\n{transcript}"  # Only this changes
+        }
     ]
 
     response = model.invoke(messages).content
