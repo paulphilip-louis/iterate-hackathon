@@ -29,6 +29,7 @@ Place screenshots in `docs/screenshots` and update the paths below.
 ```
 ANTHROPIC_API_KEY=<your_key>
 ELEVENLABS_API_KEY=<your_key>
+LINKUP_API_KEY=<your_key>
 ```
 
 2) Start all services:
