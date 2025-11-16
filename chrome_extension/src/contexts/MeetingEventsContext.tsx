@@ -43,7 +43,7 @@ export function MeetingEventsProvider({ children }: { children: ReactNode }) {
 
   const addQuestion = useCallback((question: string) => {
     const newQuestion: SuggestedQuestion = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       message: question,
     };
     setQuestions((prev) => [newQuestion, ...prev]);
@@ -51,7 +51,7 @@ export function MeetingEventsProvider({ children }: { children: ReactNode }) {
 
   const addFlag = useCallback((isGreen: boolean, message: string) => {
     const newFlag: Flag = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       isGreen,
       message,
     };
@@ -59,11 +59,17 @@ export function MeetingEventsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addDefine = useCallback((term: string, definition: string) => {
+    console.log("📚 addDefine called:", { term, definition });
     const newDefine: Define = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       message: `${term}: ${definition}`,
     };
-    setDefines((prev) => [newDefine, ...prev]);
+    console.log("📚 New define object:", newDefine);
+    setDefines((prev) => {
+      const updated = [newDefine, ...prev];
+      console.log("📚 Updated defines array:", updated);
+      return updated;
+    });
   }, []);
 
   const clearAll = useCallback(() => {

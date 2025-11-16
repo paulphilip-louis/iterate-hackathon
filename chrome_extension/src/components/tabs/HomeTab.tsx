@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
 import { Flag as FlagIcon, HelpCircle, BookOpen } from "lucide-react";
 import { useMeeting } from "@/hooks/useMeeting";
@@ -94,6 +95,12 @@ export function HomeTab() {
 
   const flags = contextFlags;
 
+  // Log when defines change
+  useEffect(() => {
+    console.log("📚 HomeTab: defines updated, count:", defines.length);
+    console.log("📚 HomeTab: defines array:", defines);
+  }, [defines]);
+
   useMeeting({
     onNewSuggestedQuestion: addQuestion,
     onStartingQuestions: (questions) => {
@@ -104,7 +111,13 @@ export function HomeTab() {
     },
     onGreenFlag: (message) => addFlag(true, message),
     onRedFlag: (message) => addFlag(false, message),
-    onDefineTerm: addDefine,
+    onDefineTerm: (term, definition) => {
+      console.log("📚 HomeTab: onDefineTerm callback called:", {
+        term,
+        definition,
+      });
+      addDefine(term, definition);
+    },
   });
 
   return (

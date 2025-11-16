@@ -120,6 +120,9 @@ export function useMeeting(callbacks: UseMeetingCallbacks) {
             break;
 
           case "DEFINE_TERM":
+            console.log("🔍 Define term event:", validatedEvent.payload);
+            console.log(`   Term: ${validatedEvent.payload.term}`);
+            console.log(`   Definition: ${validatedEvent.payload.definition}`);
             onDefineTerm?.(
               validatedEvent.payload.term,
               validatedEvent.payload.definition
@@ -288,6 +291,9 @@ export function useMeeting(callbacks: UseMeetingCallbacks) {
             onRedFlag?.(validatedEvent.payload.message);
             break;
           case "DEFINE_TERM":
+            console.log("🔍 Define term event:", validatedEvent.payload);
+            console.log(`   Term: ${validatedEvent.payload.term}`);
+            console.log(`   Definition: ${validatedEvent.payload.definition}`);
             onDefineTerm?.(
               validatedEvent.payload.term,
               validatedEvent.payload.definition

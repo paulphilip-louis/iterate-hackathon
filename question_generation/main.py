@@ -62,7 +62,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 linkedin_url = CANDIDATE_INFOS.get("CANDIDATES_LINKEDIN") or CANDIDATE_INFOS.get("linkedin_url", "")
                 job_description = CANDIDATE_INFOS.get("JOB_DESCRIPTION") or CANDIDATE_INFOS.get("job_offer", "")
                 company_values = CANDIDATE_INFOS.get("COMPANY_VALUES", "")
-                
+
                 if linkedin_url:
                     # Ajouter https:// si manquant
                     if not linkedin_url.startswith("http"):
@@ -71,13 +71,16 @@ async def websocket_endpoint(websocket: WebSocket):
                     CV = generate_questions.extract_linkedin(client, linkedin_url)
                     JOB_OFFER = job_description
                     COMPANY_VALUES = company_values
-                    KEYWORDS = await keyword_search.extract_keywords_and_def(model, CV)
 
                 # Generate generic questions
                 context = "#Job offer : " + JOB_OFFER + "\n\n#Company values : " + COMPANY_VALUES + "\n\n#Candidate profile : " + CV
                 questions = await generate_questions.generate_questions_beginning(model, context)
                 await websocket.send_text(json.dumps({"event": "STARTING_QUESTIONS", "payload": questions}))
                 print(f"Sent starting question event")
+
+                if linkedin_url:
+                    KEYWORDS = await keyword_search.extract_keywords_and_def(model, CV)
+                    print("KEYWORDS: ", KEYWORDS)
 
             elif data["event"] not in ["GREEN_FLAG", "RED_FLAG", "DEFINE_TERM", "TODO_CREATED", "TICK_TODO"]:
                 print(f"Unknown event type: {data.get('event')}")
