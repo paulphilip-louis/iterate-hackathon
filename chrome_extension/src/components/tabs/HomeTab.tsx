@@ -79,6 +79,12 @@ export function HomeTab() {
 
   useMeeting({
     onNewSuggestedQuestion: addQuestion,
+    onStartingQuestions: (questions) => {
+      // Add all questions from the array to the list
+      questions.forEach((question) => {
+        addQuestion(question);
+      });
+    },
     onGreenFlag: (message) => addFlag(true, message),
     onRedFlag: (message) => addFlag(false, message),
     onDefineTerm: addDefine,

@@ -11,6 +11,7 @@ const MEETING_WS_URL =
 
 interface UseMeetingCallbacks {
   onNewSuggestedQuestion?: (question: string) => void;
+  onStartingQuestions?: (questions: string[]) => void;
   onGreenFlag?: (message: string) => void;
   onRedFlag?: (message: string) => void;
   onDefineTerm?: (term: string, definition: string) => void;
@@ -22,6 +23,7 @@ interface UseMeetingCallbacks {
 export function useMeeting(callbacks: UseMeetingCallbacks) {
   const {
     onNewSuggestedQuestion,
+    onStartingQuestions,
     onGreenFlag,
     onRedFlag,
     onDefineTerm,
@@ -73,11 +75,40 @@ export function useMeeting(callbacks: UseMeetingCallbacks) {
         // Handle different event types
         switch (validatedEvent.event) {
           case "NEW_SUGGESTED_QUESTION":
+            console.log("🔍 New suggested question:", validatedEvent.payload);
             // Handle both payload formats: object with question field or direct string
             const question = typeof validatedEvent.payload === 'string'
               ? validatedEvent.payload
               : validatedEvent.payload.question;
             onNewSuggestedQuestion?.(question);
+            break;
+
+          case "STARTING_QUESTIONS":
+            console.log("🔍 Starting questions:", validatedEvent.payload);
+            // Handle payload: it might be a JSON string or an object
+            let questionsArray: string[] = [];
+
+            if (typeof validatedEvent.payload === 'string') {
+              // If payload is a JSON string, parse it
+              try {
+                const parsed = JSON.parse(validatedEvent.payload);
+                // Convert object like {"1": "q1", "2": "q2"} to array
+                if (typeof parsed === 'object' && parsed !== null) {
+                  questionsArray = Object.values(parsed).filter(q => typeof q === 'string') as string[];
+                }
+              } catch (e) {
+                console.error("Error parsing STARTING_QUESTIONS payload:", e);
+              }
+            } else if (typeof validatedEvent.payload === 'object' && 'questions' in validatedEvent.payload && Array.isArray(validatedEvent.payload.questions)) {
+              questionsArray = validatedEvent.payload.questions;
+            }
+
+            console.log("🔍 Processed questions array:", questionsArray);
+            if (questionsArray.length > 0) {
+              onStartingQuestions?.(questionsArray);
+            } else {
+              console.warn("⚠️ No valid questions found in STARTING_QUESTIONS payload");
+            }
             break;
 
           case "GREEN_FLAG":
@@ -112,6 +143,7 @@ export function useMeeting(callbacks: UseMeetingCallbacks) {
     },
     [
       onNewSuggestedQuestion,
+      onStartingQuestions,
       onGreenFlag,
       onRedFlag,
       onDefineTerm,
@@ -202,37 +234,71 @@ export function useMeeting(callbacks: UseMeetingCallbacks) {
     const unsubscribe = onQuestionGenMessage((data) => {
       // Process the message through the same handler
       try {
+        console.log("📨 Raw question gen message:", data);
         const result = meetingEventSchema.safeParse(data);
-        if (result.success) {
-          const validatedEvent: MeetingEvent = result.data;
 
-          // Handle different event types
-          switch (validatedEvent.event) {
-            case "NEW_SUGGESTED_QUESTION":
-              const question = typeof validatedEvent.payload === 'string'
-                ? validatedEvent.payload
-                : validatedEvent.payload.question;
-              onNewSuggestedQuestion?.(question);
-              break;
-            case "GREEN_FLAG":
-              onGreenFlag?.(validatedEvent.payload.message);
-              break;
-            case "RED_FLAG":
-              onRedFlag?.(validatedEvent.payload.message);
-              break;
-            case "DEFINE_TERM":
-              onDefineTerm?.(
-                validatedEvent.payload.term,
-                validatedEvent.payload.definition
-              );
-              break;
-            case "TODO_CREATED":
-              onTodoCreated?.(validatedEvent.payload.todos);
-              break;
-            case "TICK_TODO":
-              onTickTodo?.(validatedEvent.payload.id);
-              break;
-          }
+        if (!result.success) {
+          console.warn("❌ Invalid question gen event received:", result.error);
+          console.warn("❌ Raw data that failed validation:", data);
+          return;
+        }
+
+        const validatedEvent: MeetingEvent = result.data;
+        console.log("🔍 Validated question gen event:", validatedEvent);
+
+        // Handle different event types
+        switch (validatedEvent.event) {
+          case "NEW_SUGGESTED_QUESTION":
+            const question = typeof validatedEvent.payload === 'string'
+              ? validatedEvent.payload
+              : validatedEvent.payload.question;
+            onNewSuggestedQuestion?.(question);
+            break;
+          case "STARTING_QUESTIONS":
+            console.log("🔍 Starting questions:", validatedEvent.payload);
+            // Handle payload: it might be a JSON string or an object
+            let questionsArray2: string[] = [];
+
+            if (typeof validatedEvent.payload === 'string') {
+              // If payload is a JSON string, parse it
+              try {
+                const parsed = JSON.parse(validatedEvent.payload);
+                // Convert object like {"1": "q1", "2": "q2"} to array
+                if (typeof parsed === 'object' && parsed !== null) {
+                  questionsArray2 = Object.values(parsed).filter(q => typeof q === 'string') as string[];
+                }
+              } catch (e) {
+                console.error("Error parsing STARTING_QUESTIONS payload:", e);
+              }
+            } else if (typeof validatedEvent.payload === 'object' && 'questions' in validatedEvent.payload && Array.isArray(validatedEvent.payload.questions)) {
+              questionsArray2 = validatedEvent.payload.questions;
+            }
+
+            console.log("🔍 Processed questions array:", questionsArray2);
+            if (questionsArray2.length > 0) {
+              onStartingQuestions?.(questionsArray2);
+            } else {
+              console.warn("⚠️ No valid questions found in STARTING_QUESTIONS payload");
+            }
+            break;
+          case "GREEN_FLAG":
+            onGreenFlag?.(validatedEvent.payload.message);
+            break;
+          case "RED_FLAG":
+            onRedFlag?.(validatedEvent.payload.message);
+            break;
+          case "DEFINE_TERM":
+            onDefineTerm?.(
+              validatedEvent.payload.term,
+              validatedEvent.payload.definition
+            );
+            break;
+          case "TODO_CREATED":
+            onTodoCreated?.(validatedEvent.payload.todos);
+            break;
+          case "TICK_TODO":
+            onTickTodo?.(validatedEvent.payload.id);
+            break;
         }
       } catch (error) {
         console.error("Error processing question generation message:", error);
@@ -251,7 +317,7 @@ export function useMeeting(callbacks: UseMeetingCallbacks) {
       }
       unsubscribe();
     };
-  }, [connect, onNewSuggestedQuestion, onGreenFlag, onRedFlag, onDefineTerm, onTodoCreated, onTickTodo]);
+  }, [connect, onNewSuggestedQuestion, onStartingQuestions, onGreenFlag, onRedFlag, onDefineTerm, onTodoCreated, onTickTodo]);
 
   return { send, isConnected: wsRef.current?.readyState === WebSocket.OPEN };
 }
