@@ -9,6 +9,14 @@ export const newSuggestedQuestionSchema = z.object({
   }),
 });
 
+export const startingQuestionSchema = z.object({
+  type: z.literal("event"),
+  event: z.literal("STARTING_QUESTIONS"),
+  payload: z.object({
+    questions: z.array(z.string()),
+  }),
+});
+
 export const greenFlagSchema = z.object({
   type: z.literal("event"),
   event: z.literal("GREEN_FLAG"),
