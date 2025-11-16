@@ -5,14 +5,17 @@ import { StrictMode } from "react";
 import { TranscriptProvider } from "./contexts/TranscriptContext";
 import { MeetingEventsProvider } from "./contexts/MeetingEventsContext";
 import { ScriptProvider } from "./contexts/ScriptContext";
+import { InterviewAnalysisProvider } from "./contexts/InterviewAnalysisContext";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TranscriptProvider>
       <ScriptProvider>
-        <MeetingEventsProvider>
-          <App />
-        </MeetingEventsProvider>
+        <InterviewAnalysisProvider>
+          <MeetingEventsProvider>
+            <App />
+          </MeetingEventsProvider>
+        </InterviewAnalysisProvider>
       </ScriptProvider>
     </TranscriptProvider>
   </StrictMode>
