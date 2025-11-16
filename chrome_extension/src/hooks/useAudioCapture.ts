@@ -366,12 +366,12 @@ export function useAudioCapture() {
         console.log("🎵 Setting up audio processing pipelines for tab and microphone...");
 
         const tabSource = audioContext.createMediaStreamSource(tabStream);
-        
+
         const tabSplitter = audioContext.createGain();
         tabSplitter.gain.value = 1.0;
-        
+
         tabSplitter.connect(audioContext.destination);
-        
+
         const tabProcessor = audioContext.createScriptProcessor(4096, 1, 1);
         let tabChunkCount = 0;
         const tabChunks: Float32Array[] = [];
