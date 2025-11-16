@@ -64,12 +64,20 @@ export function HomeTab() {
     addDefine,
   } = useMeetingEvents();
 
-  const { flags: analysisFlags } = useInterviewAnalysis();
+  // Flags are now persisted in context (same as questions), so we only need context flags
+  // useInterviewAnalysis hook saves flags to context automatically
+  useInterviewAnalysis();
 
-  const flags = [...analysisFlags, ...contextFlags];
+  const flags = contextFlags;
 
   useMeeting({
     onNewSuggestedQuestion: addQuestion,
+    onStartingQuestions: (questions) => {
+      // Add all questions from the array to the list
+      questions.forEach((question) => {
+        addQuestion(question);
+      });
+    },
     onGreenFlag: (message) => addFlag(true, message),
     onRedFlag: (message) => addFlag(false, message),
     onDefineTerm: addDefine,

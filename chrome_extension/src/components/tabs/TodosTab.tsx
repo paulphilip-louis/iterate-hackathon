@@ -74,7 +74,19 @@ export function TodosTab() {
   };
 
   return (
-    <div className="flex flex-col gap-4 h-full w-full p-4 overflow-hidden">      
+    <div className="flex flex-col gap-4 h-full w-full p-4 overflow-hidden">     
+      <div className="flex items-center justify-end mb-2">
+        {scriptState && (
+          <div className="px-3 py-1 bg-neutral-100 text-neutral-700 text-sm rounded-full font-medium shadow-sm">
+            {scriptState.progress.toFixed(0)}% Complete
+          </div>
+        )}
+        {!scriptState && (
+          <div className="px-3 py-1 bg-red-100 text-red-700 text-sm rounded-full font-medium shadow-sm">
+            0% Complete
+          </div>
+        )}
+      </div>
       <div className="flex-1 overflow-y-auto space-y-4">
         {INTERVIEW_SCRIPT.map((section) => {
           const isSectionCompleted = scriptState?.completedSections[section.id] || false;

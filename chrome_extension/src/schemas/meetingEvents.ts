@@ -38,13 +38,18 @@ export const newSuggestedQuestionSchema = z.union([
   }),
 ]);
 
-export const startingQuestionSchema = z.object({
-  type: z.literal("event"),
-  event: z.literal("STARTING_QUESTIONS"),
-  payload: z.object({
-    questions: z.array(z.string()),
+export const startingQuestionSchema = z.union([
+  z.object({
+    event: z.literal("STARTING_QUESTIONS"),
+    payload: z.string(), // JSON string from question generation service
   }),
-});
+  z.object({
+    event: z.literal("STARTING_QUESTIONS"),
+    payload: z.object({
+      questions: z.array(z.string()),
+    }),
+  }),
+]);
 
 export const greenFlagSchema = z.object({
   type: z.literal("event"),
@@ -62,14 +67,23 @@ export const redFlagSchema = z.object({
   }),
 });
 
-export const defineTermSchema = z.object({
-  type: z.literal("event"),
-  event: z.literal("DEFINE_TERM"),
-  payload: z.object({
-    term: z.string(),
-    definition: z.string(),
+export const defineTermSchema = z.union([
+  z.object({
+    type: z.literal("event").optional(),
+    event: z.literal("DEFINE_TERM"),
+    payload: z.object({
+      term: z.string(),
+      definition: z.string(),
+    }),
   }),
-});
+  z.object({
+    event: z.literal("DEFINE_TERM"),
+    payload: z.object({
+      term: z.string(),
+      definition: z.string(),
+    }),
+  }),
+]);
 
 export const todoCreatedSchema = z.object({
   type: z.literal("event"),
@@ -105,6 +119,7 @@ export const pdfGeneratedSchema = z.object({
 // Use union instead of discriminatedUnion to support flexible formats
 export const meetingEventSchema = z.union([
   newSuggestedQuestionSchema,
+  startingQuestionSchema,
   greenFlagSchema,
   redFlagSchema,
   defineTermSchema,

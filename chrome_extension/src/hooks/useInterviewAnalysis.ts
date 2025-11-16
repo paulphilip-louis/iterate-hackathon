@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { useTranscripts } from "@/contexts/TranscriptContext";
 import { useScript } from "@/contexts/ScriptContext";
-import type { Transcript } from "@/contexts/TranscriptContext";
+import { useMeetingEvents } from "@/contexts/MeetingEventsContext";
 
 const INTERVIEW_ANALYSIS_WS_URL = import.meta.env.VITE_INTERVIEW_ANALYSIS_WS_URL || "ws://localhost:8080";
 const SEND_INTERVAL = 5000; // 5 seconds
@@ -56,17 +56,19 @@ export function useInterviewAnalysis() {
   const { committedTranscripts } = useTranscripts();
   // Get script context to update it directly
   const { setScriptState: setContextScriptState } = useScript();
-  
+  // Get meeting events context to persist flags (same as questions)
+  const { addFlag: addFlagToContext } = useMeetingEvents();
+
   console.log("🎯 useInterviewAnalysis hook initialized/re-rendered");
   console.log(`  Current transcripts count: ${committedTranscripts.length}`);
   if (committedTranscripts.length > 0) {
     console.log(`  First transcript:`, committedTranscripts[0]);
     console.log(`  Last transcript:`, committedTranscripts[committedTranscripts.length - 1]);
   }
-  
+
   const [flags, setFlags] = useState<Flag[]>([]);
   const [scriptState, setScriptState] = useState<ScriptState | null>(null);
-  
+
   // Update context whenever scriptState changes (so TodosTab can see it)
   useEffect(() => {
     if (scriptState) {
@@ -83,15 +85,15 @@ export function useInterviewAnalysis() {
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
   const reconnectDelay = 3000;
-  
+
   // Use refs to avoid recreating callbacks on every render
   const transcriptsRef = useRef(committedTranscripts);
   const handleWebSocketMessageRef = useRef<(event: MessageEvent) => void>();
   const sendAccumulatedTranscriptsRef = useRef<() => void>();
-  
+
   // Update ref immediately when transcripts change (synchronous)
   transcriptsRef.current = committedTranscripts;
-  
+
   // Log when transcripts change
   useEffect(() => {
     console.log(`📊 Transcripts ref updated: ${committedTranscripts.length} transcripts`);
@@ -162,105 +164,112 @@ export function useInterviewAnalysis() {
 
   // Handle WebSocket messages
   const handleWebSocketMessage = useCallback((event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
+    try {
+      const data = JSON.parse(event.data);
 
-        if (data.type === 'analysis_result' && data.payload) {
-          console.log("📥 Received analysis result:", data.payload);
-          const result: AnalysisResult = data.payload;
-          const newFlags = convertResultsToFlags(result);
-          
-          console.log(`🏁 Converted to ${newFlags.length} flags:`, newFlags);
-          
-          if (newFlags.length > 0) {
-            setFlags((prev) => {
-              const updated = [...newFlags, ...prev];
-              console.log(`📋 Total flags now: ${updated.length}`);
-              return updated;
-            });
-          }
+      if (data.type === 'analysis_result' && data.payload) {
+        console.log("📥 Received analysis result:", data.payload);
+        const result: AnalysisResult = data.payload;
+        const newFlags = convertResultsToFlags(result);
 
-          // Update script state if available (for Todos tab)
-          if (result.scriptTracking?.scriptState) {
-            console.log("📋 Updating script state:", result.scriptTracking.scriptState);
-            console.log("   Current section:", result.scriptTracking.scriptState.currentSection);
-            console.log("   Current subsection:", result.scriptTracking.scriptState.currentSubsection);
-            console.log("   Completed sections:", result.scriptTracking.scriptState.completedSections);
-            console.log("   Completed subsections:", result.scriptTracking.scriptState.completedSubsections);
-            console.log("   Progress:", result.scriptTracking.scriptState.progress);
-            
-            // IMPORTANT: Preserve previously completed subsections - once checked, never unchecked
-            setScriptState((prevState) => {
-              const newCompletedSubsections = { ...(result.scriptTracking.scriptState.completedSubsections || {}) };
-              
-              // Merge with previous state: keep all previously completed subsections
-              if (prevState?.completedSubsections) {
-                Object.keys(prevState.completedSubsections).forEach((key) => {
-                  if (prevState.completedSubsections[key] === true) {
-                    // Preserve completed status - never uncheck
-                    newCompletedSubsections[key] = true;
-                  }
-                });
-              }
-              
-              // Create a NEW object to ensure React detects the change
-              const newScriptState: ScriptState = {
-                currentSection: result.scriptTracking.scriptState.currentSection,
-                completedSections: { ...(result.scriptTracking.scriptState.completedSections || {}) },
-                completedSubsections: newCompletedSubsections, // Use merged completed subsections
-                currentSubsection: result.scriptTracking.scriptState.currentSubsection,
-                progress: result.scriptTracking.scriptState.progress,
-              };
-              
-              console.log("   Merged completed subsections (preserving all checked):", newCompletedSubsections);
-              console.log("   Setting script state (NEW OBJECT):", newScriptState);
-              console.log("   Previous script state:", prevState);
-              
-              return newScriptState;
-            });
-          } else {
-            console.log("⚠️ No scriptTracking.scriptState in result");
-            console.log("   scriptTracking:", result.scriptTracking);
-          }
-               } else if (data.type === 'connection') {
-                 console.log("✅ Connected to interview analysis service");
-               } else if (data.type === 'script_state_update') {
-                 // Handle manual mark completion update
-                 console.log("📋 Received script state update:", data.payload);
-                 if (data.payload?.scriptState) {
-                   // IMPORTANT: Preserve previously completed subsections
-                   setScriptState((prevState) => {
-                     const newCompletedSubsections = { ...(data.payload.scriptState.completedSubsections || {}) };
-                     
-                     // Merge with previous state: keep all previously completed subsections
-                     if (prevState?.completedSubsections) {
-                       Object.keys(prevState.completedSubsections).forEach((key) => {
-                         if (prevState.completedSubsections[key] === true) {
-                           // Preserve completed status - never uncheck
-                           newCompletedSubsections[key] = true;
-                         }
-                       });
-                     }
-                     
-                     return {
-                       currentSection: data.payload.scriptState.currentSection,
-                       completedSections: data.payload.scriptState.completedSections,
-                       completedSubsections: newCompletedSubsections, // Use merged
-                       currentSubsection: data.payload.scriptState.currentSubsection,
-                       progress: data.payload.scriptState.progress,
-                     };
-                   });
-                 }
-               } else if (data.type === 'error') {
-                 console.error("❌ Interview analysis error:", data.message);
-               }
-      } catch (error) {
-        console.error("Error parsing WebSocket message:", error);
+        console.log(`🏁 Converted to ${newFlags.length} flags:`, newFlags);
+
+        if (newFlags.length > 0) {
+          // Save flags to context so they persist across tab switches (same as questions)
+          newFlags.forEach((flag) => {
+            addFlagToContext(flag.isGreen, flag.message);
+          });
+
+          setFlags((prev) => {
+            const updated = [...newFlags, ...prev];
+            console.log(`📋 Total flags now: ${updated.length}`);
+            return updated;
+          });
+        }
+
+        // Update script state if available (for Todos tab)
+        if (result.scriptTracking?.scriptState) {
+          const scriptStateData = result.scriptTracking.scriptState;
+          console.log("📋 Updating script state:", scriptStateData);
+          console.log("   Current section:", scriptStateData.currentSection);
+          console.log("   Current subsection:", scriptStateData.currentSubsection);
+          console.log("   Completed sections:", scriptStateData.completedSections);
+          console.log("   Completed subsections:", scriptStateData.completedSubsections);
+          console.log("   Progress:", scriptStateData.progress);
+
+          // IMPORTANT: Preserve previously completed subsections - once checked, never unchecked
+          setScriptState((prevState) => {
+            const newCompletedSubsections = { ...(scriptStateData.completedSubsections || {}) };
+
+            // Merge with previous state: keep all previously completed subsections
+            if (prevState?.completedSubsections) {
+              Object.keys(prevState.completedSubsections).forEach((key) => {
+                if (prevState.completedSubsections[key] === true) {
+                  // Preserve completed status - never uncheck
+                  newCompletedSubsections[key] = true;
+                }
+              });
+            }
+
+            // Create a NEW object to ensure React detects the change
+            const newScriptState: ScriptState = {
+              currentSection: scriptStateData.currentSection,
+              completedSections: { ...(scriptStateData.completedSections || {}) },
+              completedSubsections: newCompletedSubsections, // Use merged completed subsections
+              currentSubsection: scriptStateData.currentSubsection ?? null,
+              progress: scriptStateData.progress,
+            };
+
+            console.log("   Merged completed subsections (preserving all checked):", newCompletedSubsections);
+            console.log("   Setting script state (NEW OBJECT):", newScriptState);
+            console.log("   Previous script state:", prevState);
+
+            return newScriptState;
+          });
+        } else {
+          console.log("⚠️ No scriptTracking.scriptState in result");
+          console.log("   scriptTracking:", result.scriptTracking);
+        }
+      } else if (data.type === 'connection') {
+        console.log("✅ Connected to interview analysis service");
+      } else if (data.type === 'script_state_update') {
+        // Handle manual mark completion update
+        console.log("📋 Received script state update:", data.payload);
+        if (data.payload?.scriptState) {
+          const scriptStateData = data.payload.scriptState;
+          // IMPORTANT: Preserve previously completed subsections
+          setScriptState((prevState) => {
+            const newCompletedSubsections = { ...(scriptStateData.completedSubsections || {}) };
+
+            // Merge with previous state: keep all previously completed subsections
+            if (prevState?.completedSubsections) {
+              Object.keys(prevState.completedSubsections).forEach((key) => {
+                if (prevState.completedSubsections[key] === true) {
+                  // Preserve completed status - never uncheck
+                  newCompletedSubsections[key] = true;
+                }
+              });
+            }
+
+            return {
+              currentSection: scriptStateData.currentSection,
+              completedSections: scriptStateData.completedSections || {},
+              completedSubsections: newCompletedSubsections, // Use merged
+              currentSubsection: scriptStateData.currentSubsection ?? null,
+              progress: scriptStateData.progress,
+            };
+          });
+        }
+      } else if (data.type === 'error') {
+        console.error("❌ Interview analysis error:", data.message);
       }
-    },
-    [convertResultsToFlags]
+    } catch (error) {
+      console.error("Error parsing WebSocket message:", error);
+    }
+  },
+    [convertResultsToFlags, addFlagToContext]
   );
-  
+
   // Update ref when handler changes
   useEffect(() => {
     handleWebSocketMessageRef.current = handleWebSocketMessage;
@@ -270,17 +279,17 @@ export function useInterviewAnalysis() {
   const sendAccumulatedTranscripts = useCallback(() => {
     // Always read the latest transcripts from the ref (which is kept in sync)
     const committedTranscripts = transcriptsRef.current;
-    
+
     console.log("🔄 sendAccumulatedTranscripts called");
     console.log(`  WebSocket ref exists: ${wsRef.current !== null}`);
     console.log(`  WebSocket state: ${wsRef.current?.readyState} (OPEN=${WebSocket.OPEN})`);
     console.log(`  Transcripts ref count: ${committedTranscripts.length}`);
-    
+
     if (!wsRef.current) {
       console.log("⚠️ WebSocket ref is null, skipping send");
       return;
     }
-    
+
     if (wsRef.current.readyState !== WebSocket.OPEN) {
       console.log(`⚠️ WebSocket not open (state: ${wsRef.current.readyState}), skipping send`);
       return;
@@ -324,7 +333,7 @@ export function useInterviewAnalysis() {
           return isRecent || isMostRecent;
         }
       );
-      
+
       // If still no recent transcripts, use the last few transcripts as fallback
       if (recentTranscripts.length === 0 && committedTranscripts.length > 0) {
         console.log("⚠️ No transcripts in 30s window, using last 3 transcripts as fallback");
@@ -430,7 +439,7 @@ export function useInterviewAnalysis() {
       }
     }
   }, []); // Empty deps - uses ref for transcripts
-  
+
   // Update ref when function changes
   useEffect(() => {
     sendAccumulatedTranscriptsRef.current = sendAccumulatedTranscripts;
@@ -442,7 +451,7 @@ export function useInterviewAnalysis() {
       console.log("🔌 WebSocket already connected, skipping");
       return;
     }
-    
+
     if (wsRef.current) {
       console.log("🔌 WebSocket exists but not open, closing first");
       wsRef.current.close();
@@ -539,7 +548,7 @@ export function useInterviewAnalysis() {
   // Setup interval (separate effect, uses ref for callback)
   useEffect(() => {
     console.log("⏰ Setting up interval for sending transcripts");
-    
+
     // Setup interval to send transcripts every 5 seconds
     intervalRef.current = window.setInterval(() => {
       console.log("⏰ Interval triggered - checking for transcripts to send");

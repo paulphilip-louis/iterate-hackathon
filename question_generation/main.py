@@ -77,6 +77,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 context = "#Job offer : " + JOB_OFFER + "\n\n#Company values : " + COMPANY_VALUES + "\n\n#Candidate profile : " + CV
                 questions = await generate_questions.generate_questions_beginning(model, context)
                 await websocket.send_text(json.dumps({"event": "STARTING_QUESTIONS", "payload": questions}))
+                print(f"Sent starting question event")
 
             elif data["event"] not in ["GREEN_FLAG", "RED_FLAG", "DEFINE_TERM", "TODO_CREATED", "TICK_TODO"]:
                 print(f"Unknown event type: {data.get('event')}")
