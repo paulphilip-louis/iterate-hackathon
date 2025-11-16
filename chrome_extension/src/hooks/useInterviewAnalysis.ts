@@ -2,9 +2,46 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { useTranscripts } from "@/contexts/TranscriptContext";
 import { useScript } from "@/contexts/ScriptContext";
 import { useMeetingEvents } from "@/contexts/MeetingEventsContext";
-import type { Transcript } from "@/contexts/TranscriptContext";
 
-// This hook now simply reads from global InterviewAnalysisContext
+const INTERVIEW_ANALYSIS_WS_URL = import.meta.env.VITE_INTERVIEW_ANALYSIS_WS_URL || "ws://localhost:8080";
+const SEND_INTERVAL = 5000; // 5 seconds
+
+interface AnalysisResult {
+  contradiction: {
+    contradiction_score: number;
+    trend: string;
+    contradictions: Array<{ message: string }>;
+    label: string;
+  };
+  scriptTracking: {
+    deviation: {
+      deviation: boolean;
+      type?: string;
+      message?: string;
+    };
+    scriptState: {
+      progress: number;
+      currentSection: number;
+    };
+  } | null;
+  culturalFit: {
+    cultural_score: number;
+    trend: string;
+    signals: Array<{ type: 'positive' | 'negative'; msg: string }>;
+    label: 'High Fit' | 'Moderate Fit' | 'Low Fit' | 'At Risk';
+  } | null;
+  metadata: {
+    chunkNumber: number;
+    speaker: string;
+    timestamp: number;
+  };
+}
+
+interface Flag {
+  id: string;
+  isGreen: boolean;
+  message: string;
+}
 
 export interface ScriptState {
   currentSection: number;
@@ -152,16 +189,17 @@ export function useInterviewAnalysis() {
 
         // Update script state if available (for Todos tab)
         if (result.scriptTracking?.scriptState) {
-          console.log("📋 Updating script state:", result.scriptTracking.scriptState);
-          console.log("   Current section:", result.scriptTracking.scriptState.currentSection);
-          console.log("   Current subsection:", result.scriptTracking.scriptState.currentSubsection);
-          console.log("   Completed sections:", result.scriptTracking.scriptState.completedSections);
-          console.log("   Completed subsections:", result.scriptTracking.scriptState.completedSubsections);
-          console.log("   Progress:", result.scriptTracking.scriptState.progress);
+          const scriptStateData = result.scriptTracking.scriptState;
+          console.log("📋 Updating script state:", scriptStateData);
+          console.log("   Current section:", scriptStateData.currentSection);
+          console.log("   Current subsection:", scriptStateData.currentSubsection);
+          console.log("   Completed sections:", scriptStateData.completedSections);
+          console.log("   Completed subsections:", scriptStateData.completedSubsections);
+          console.log("   Progress:", scriptStateData.progress);
 
           // IMPORTANT: Preserve previously completed subsections - once checked, never unchecked
           setScriptState((prevState) => {
-            const newCompletedSubsections = { ...(result.scriptTracking.scriptState.completedSubsections || {}) };
+            const newCompletedSubsections = { ...(scriptStateData.completedSubsections || {}) };
 
             // Merge with previous state: keep all previously completed subsections
             if (prevState?.completedSubsections) {
@@ -175,11 +213,11 @@ export function useInterviewAnalysis() {
 
             // Create a NEW object to ensure React detects the change
             const newScriptState: ScriptState = {
-              currentSection: result.scriptTracking.scriptState.currentSection,
-              completedSections: { ...(result.scriptTracking.scriptState.completedSections || {}) },
+              currentSection: scriptStateData.currentSection,
+              completedSections: { ...(scriptStateData.completedSections || {}) },
               completedSubsections: newCompletedSubsections, // Use merged completed subsections
-              currentSubsection: result.scriptTracking.scriptState.currentSubsection,
-              progress: result.scriptTracking.scriptState.progress,
+              currentSubsection: scriptStateData.currentSubsection ?? null,
+              progress: scriptStateData.progress,
             };
 
             console.log("   Merged completed subsections (preserving all checked):", newCompletedSubsections);
@@ -198,9 +236,10 @@ export function useInterviewAnalysis() {
         // Handle manual mark completion update
         console.log("📋 Received script state update:", data.payload);
         if (data.payload?.scriptState) {
+          const scriptStateData = data.payload.scriptState;
           // IMPORTANT: Preserve previously completed subsections
           setScriptState((prevState) => {
-            const newCompletedSubsections = { ...(data.payload.scriptState.completedSubsections || {}) };
+            const newCompletedSubsections = { ...(scriptStateData.completedSubsections || {}) };
 
             // Merge with previous state: keep all previously completed subsections
             if (prevState?.completedSubsections) {
@@ -213,11 +252,11 @@ export function useInterviewAnalysis() {
             }
 
             return {
-              currentSection: data.payload.scriptState.currentSection,
-              completedSections: data.payload.scriptState.completedSections,
+              currentSection: scriptStateData.currentSection,
+              completedSections: scriptStateData.completedSections || {},
               completedSubsections: newCompletedSubsections, // Use merged
-              currentSubsection: data.payload.scriptState.currentSubsection,
-              progress: data.payload.scriptState.progress,
+              currentSubsection: scriptStateData.currentSubsection ?? null,
+              progress: scriptStateData.progress,
             };
           });
         }
