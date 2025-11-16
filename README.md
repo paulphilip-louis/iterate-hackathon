@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="chrome_extension/src/public/tomo-ai-logo.PNG" alt="tomo AI" width="300" />
+  <img src="chrome_extension/src/public/tomo-ai-logo.PNG" alt="tomo AI" width="240" />
   <h2>tomo AI — Real-Time Interview Companion for Recruiters</h2>
   <p>Transcribe in real-time, get next question suggestions, displaying cues and warnings, generate performance scoring and more.</p>
 </div>
