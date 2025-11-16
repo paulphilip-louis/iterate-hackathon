@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Download, FileText } from "lucide-react";
 import logoImage from "@/public/tomo-ai-logo.PNG";
+import { useState } from "react";
 
 interface CompletionScreenProps {
   formData: FormData;
@@ -13,6 +14,8 @@ interface CompletionScreenProps {
 
 export function CompletionScreen({ formData: _formData, onStartNew }: CompletionScreenProps) {
   const { committedTranscripts, clearTranscripts } = useTranscripts();
+  const [pdfStatus, setPdfStatus] = useState<string>("");
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
 
   const handleStartNew = () => {
     clearTranscripts();
@@ -43,6 +46,108 @@ export function CompletionScreen({ formData: _formData, onStartNew }: Completion
     URL.revokeObjectURL(url);
   };
 
+  const buildFullTranscript = () => {
+    return committedTranscripts
+      .map((t) => {
+        const timestamp = t.timestamp
+          ? new Date(t.timestamp).toLocaleString()
+          : "";
+        const source = t.source === "microphone" ? "Recruiter" : "Applicant";
+        return `[${timestamp}] ${source}: ${t.text}`;
+      })
+      .join("\n\n");
+  };
+
+  const base64ToBlob = (base64: string, contentType: string) => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: contentType });
+  };
+
+  const handleDownloadPdf = async () => {
+    if (isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
+    setPdfStatus("Connecting to PDF service...");
+
+    try {
+      const transcriptText = buildFullTranscript();
+      if (!transcriptText.trim()) {
+        setPdfStatus("No transcript available to generate PDF.");
+        setIsGeneratingPdf(false);
+        return;
+      }
+
+      const ws = new WebSocket('ws://localhost:8000/ws');
+
+      ws.onopen = () => {
+        setPdfStatus("Sending transcript...");
+        ws.send(transcriptText);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = event.data as string;
+          if (typeof data === "string") {
+            if (data.startsWith("Status:")) {
+              setPdfStatus(data.replace("Status:", "").trim());
+              return;
+            }
+            if (data.startsWith("ERROR|")) {
+              setPdfStatus(data.replace("ERROR|", "").trim());
+              ws.close();
+              setIsGeneratingPdf(false);
+              return;
+            }
+          }
+
+          const parsed = JSON.parse(data);
+          if (parsed?.type === "event" && parsed?.event === "PDF_GENERATED") {
+            const filename = parsed?.payload?.filename || "scorecard.pdf";
+            const pdfBase64 = parsed?.payload?.pdfBytes;
+            if (!pdfBase64) {
+              setPdfStatus("PDF data missing from response.");
+              ws.close();
+              setIsGeneratingPdf(false);
+              return;
+            }
+
+            setPdfStatus("Downloading PDF...");
+            const blob = base64ToBlob(pdfBase64, "application/pdf");
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            setPdfStatus("PDF downloaded.");
+            ws.close();
+            setIsGeneratingPdf(false);
+          }
+        } catch (e) {
+          console.error("Error handling PDF message:", e);
+        }
+      };
+
+      ws.onerror = () => {
+        setPdfStatus("Failed to connect to PDF service.");
+        setIsGeneratingPdf(false);
+      };
+
+      ws.onclose = () => {
+      };
+    } catch {
+      setPdfStatus('Internal server error. Try again later.');
+      setIsGeneratingPdf(false);
+    }
+  };
+
   return (
     <div className="min-h-0 h-full w-full flex flex-col bg-gradient-to-br from-neutral-50 to-neutral-200 p-6">
       <motion.div
@@ -51,7 +156,7 @@ export function CompletionScreen({ formData: _formData, onStartNew }: Completion
         transition={{ duration: 0.5 }}
         className="min-h-0 flex-1 w-full mx-auto flex flex-col max-w-6xl"
       >
-        {/* Header */}
+
         <div className="mb-6 text-center">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
@@ -71,7 +176,6 @@ export function CompletionScreen({ formData: _formData, onStartNew }: Completion
           </p>
         </div>
 
-        {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <Card className="bg-white/80 backdrop-blur shadow-sm border border-neutral-200">
             <CardContent className="p-5">
@@ -105,11 +209,15 @@ export function CompletionScreen({ formData: _formData, onStartNew }: Completion
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => {}} // pending implementation
+                    onClick={handleDownloadPdf}
+                    disabled={isGeneratingPdf}
                     className="p-0 h-auto text-blue-600 hover:text-blue-700 font-medium"
                   >
-                    Download PDF
+                    {isGeneratingPdf ? "Generating..." : "Download PDF"}
                   </Button>
+                  {pdfStatus && (
+                    <div className="text-xs text-neutral-500 mt-1">{pdfStatus}</div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -124,7 +232,6 @@ export function CompletionScreen({ formData: _formData, onStartNew }: Completion
           </div>
         )}
 
-        {/* Logo */}
         <div className="mt-8 flex justify-center">
           <motion.img
             initial={{ scale: 0.9, opacity: 0 }}
