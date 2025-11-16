@@ -3,9 +3,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copier package.json et installer les dépendances (incluant tsx pour TypeScript)
-COPY package.json ./
-RUN npm ci --only=production
+# Copier package.json et package-lock.json puis installer les dépendances (incluant tsx pour TypeScript)
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 # Copier tout le code (modules + point d'entrée)
 COPY . .
@@ -20,4 +20,3 @@ EXPOSE 8080
 
 # Démarrer le service avec tsx pour exécuter TypeScript directement
 CMD ["npx", "tsx", "index.js"]
-
