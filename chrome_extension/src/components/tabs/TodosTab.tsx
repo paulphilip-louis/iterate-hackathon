@@ -60,16 +60,28 @@ export function TodosTab() {
 
   const handleSubsectionToggle = (subsectionId: string, isCurrentlyCompleted: boolean) => {
     if (!isCurrentlyCompleted) {
+      // Optimistically update UI immediately, even if we don't yet have a scriptState
+      const sectionId = Number((subsectionId || '').split('.')[0]) || (scriptState?.currentSection ?? 1);
+      const optimisticState = scriptState ?? {
+        currentSection: sectionId,
+        completedSections: {},
+        completedSubsections: {},
+        currentSubsection: subsectionId,
+        progress: 0,
+      };
+
+      setScriptState({
+        ...optimisticState,
+        currentSection: sectionId,
+        currentSubsection: subsectionId,
+        completedSubsections: {
+          ...optimisticState.completedSubsections,
+          [subsectionId]: true,
+        },
+      });
+
+      // Notify backend after optimistic update
       markSubsectionCompleted(subsectionId);
-      if (scriptState) {
-        setScriptState({
-          ...scriptState,
-          completedSubsections: {
-            ...scriptState.completedSubsections,
-            [subsectionId]: true,
-          },
-        });
-      }
     }
   };
 
