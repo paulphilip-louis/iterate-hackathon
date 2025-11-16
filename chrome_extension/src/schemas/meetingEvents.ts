@@ -55,6 +55,15 @@ export const tickTodoSchema = z.object({
   }),
 });
 
+export const pdfGeneratedSchema = z.object({
+  type: z.literal("event"),
+  event: z.literal("PDF_GENERATED"),
+  payload: z.object({
+    filename: z.string(),
+    pdfBytes: z.string(),
+  }),
+});
+
 // Union of all event schemas
 export const meetingEventSchema = z.discriminatedUnion("event", [
   newSuggestedQuestionSchema,
@@ -63,6 +72,7 @@ export const meetingEventSchema = z.discriminatedUnion("event", [
   defineTermSchema,
   todoCreatedSchema,
   tickTodoSchema,
+  pdfGeneratedSchema,
 ]);
 
 // Type inference
