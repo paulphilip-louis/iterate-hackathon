@@ -21,6 +21,8 @@ services:
     container_name: flags
     ports:
       - "8080:8080"
+    env_file:
+      - ./interview-analysis-system/.env
     environment:
       - NODE_ENV=production
       - PORT=8080

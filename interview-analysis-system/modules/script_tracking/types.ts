@@ -6,7 +6,7 @@
  * Result of classifying a transcript chunk
  */
 export type ClassificationResult = {
-  /** Section ID (1-6) or null if not classifiable */
+  /** Section ID (1-5) or null if not classifiable */
   section: number | null;
   /** Subsection ID (e.g., "1.1", "2.3") or null */
   subsection: string | null;
@@ -36,7 +36,7 @@ export type DeviationResult = {
  * Script state for UI overlay
  */
 export type ScriptState = {
-  /** Current section being discussed (1-6) */
+  /** Current section being discussed (1-5) */
   currentSection: number;
   /** Map of section IDs to completion status */
   completedSections: Record<number, boolean>;

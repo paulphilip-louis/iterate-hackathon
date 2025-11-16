@@ -9,6 +9,7 @@ import 'dotenv/config';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
 import { processTranscriptChunk, resetState } from './transcriptProcessor.js';
+import { markSubsectionCompleted, getScriptState } from './modules/script_tracking/index.js';
 
 const PORT = process.env.PORT || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -38,7 +39,11 @@ wss.on('connection', (ws, req) => {
   // Gérer les messages entrants
   ws.on('message', async (data) => {
     try {
-      const message = JSON.parse(data.toString());
+      const rawMessage = data.toString();
+      console.log(`\n📨 Received WebSocket message (${rawMessage.length} bytes):`, rawMessage.substring(0, 200));
+      
+      const message = JSON.parse(rawMessage);
+      console.log(`📦 Parsed message type: ${message.type}`);
       
       // Vérifier le type de message
       if (message.type === 'transcript_chunk') {
@@ -71,6 +76,31 @@ wss.on('connection', (ws, req) => {
           type: 'reset',
           status: 'ok',
           message: 'State reset for new interview'
+        }));
+        
+      } else if (message.type === 'mark_subsection_completed') {
+        // Marquer manuellement une subsection comme complétée
+        const { subsectionId } = message.payload;
+        
+        if (!subsectionId || typeof subsectionId !== 'string') {
+          ws.send(JSON.stringify({
+            type: 'error',
+            message: 'Invalid subsectionId: must be a non-empty string (e.g., "1.1")'
+          }));
+          return;
+        }
+        
+        console.log(`✅ Manually marking subsection ${subsectionId} as completed`);
+        markSubsectionCompleted(subsectionId);
+        
+        // Envoyer l'état mis à jour
+        const scriptState = getScriptState();
+        ws.send(JSON.stringify({
+          type: 'script_state_update',
+          payload: {
+            scriptState
+          },
+          timestamp: Date.now()
         }));
         
       } else {

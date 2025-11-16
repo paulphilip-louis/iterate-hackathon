@@ -1,8 +1,11 @@
 import { Separator } from "@/components/ui/separator";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "../ui/button";
 import { Flag } from "lucide-react";
 import { useMeeting } from "@/hooks/useMeeting";
+import { useTranscripts } from "@/contexts/TranscriptContext";
+import { useInterviewAnalysis } from "@/hooks/useInterviewAnalysis";
+import { useScript } from "@/contexts/ScriptContext";
 
 interface Flag {
   id: string;
@@ -66,9 +69,21 @@ function FlagList({ flags }: { flags: Flag[] }) {
 }
 
 export function HomeTab() {
+  console.log("🏠 HomeTab component rendered");
+  
   const [defines, setDefines] = useState<Define[]>([]);
   const [questions, setQuestions] = useState<SuggestedQuestion[]>([]);
-  const [flags, setFlags] = useState<Flag[]>([]);
+  const [manualFlags, setManualFlags] = useState<Flag[]>([]);
+  
+  // Get flags from interview analysis service
+  // Script state is now updated directly in the context by useInterviewAnalysis
+  const { flags: analysisFlags } = useInterviewAnalysis();
+  
+  console.log(`🏁 HomeTab: analysisFlags count = ${analysisFlags.length}`);
+  
+  // Combine manual flags (from useMeeting) with analysis flags
+  const flags = [...analysisFlags, ...manualFlags];
+  console.log(`🚩 HomeTab: total flags = ${flags.length}`);
 
   const handleNewSuggestedQuestion = (question: string) => {
     const newQuestion: SuggestedQuestion = {
@@ -84,7 +99,7 @@ export function HomeTab() {
       isGreen: true,
       message,
     };
-    setFlags((prev) => [newFlag, ...prev]);
+    setManualFlags((prev) => [newFlag, ...prev]);
   };
 
   const handleRedFlag = (message: string) => {
@@ -93,7 +108,7 @@ export function HomeTab() {
       isGreen: false,
       message,
     };
-    setFlags((prev) => [newFlag, ...prev]);
+    setManualFlags((prev) => [newFlag, ...prev]);
   };
 
   const handleDefineTerm = (term: string, definition: string) => {
@@ -141,6 +156,7 @@ export function HomeTab() {
           variant="outline"
           size="sm"
           className="bg-green-50 border-green-300"
+          disabled={true}
         >
           Simulate Green Flag
         </Button>
@@ -149,6 +165,7 @@ export function HomeTab() {
           variant="outline"
           size="sm"
           className="bg-red-50 border-red-300"
+          disabled={true}
         >
           Simulate Red Flag
         </Button>

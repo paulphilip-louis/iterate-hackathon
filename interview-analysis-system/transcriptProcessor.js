@@ -23,6 +23,13 @@ let culturalFitScore = 50; // Score initial de cultural fit
 let recentContext = [];
 let chunkCounter = 0;
 
+// Accumulate chunks from both speakers for script tracking
+let scriptChunkHistory = {
+  candidate: [],
+  recruiter: []
+};
+const MAX_SCRIPT_HISTORY = 3;
+
 /**
  * ⚠️ FONCTION PRINCIPALE - Appelée à chaque chunk de transcript
  * 
@@ -106,26 +113,54 @@ export async function processTranscriptChunk(transcriptChunk, speaker, wss) {
   // 2. SCRIPT TRACKING (seulement pour recruteur)
   // ============================================
   let scriptTrackingResult = null;
-  if (speaker === 'recruiter') {
-    try {
-      console.log('📋 Running script tracking...');
-      const startTime = Date.now();
-      
-      scriptTrackingResult = await processScriptChunk(transcriptChunk);
-      
-      const elapsed = Date.now() - startTime;
-      console.log(`⏱️  Script tracking took ${elapsed}ms`);
-      
-      if (scriptTrackingResult.deviation.deviation) {
-        console.log(`⚠️  Script deviation: ${scriptTrackingResult.deviation.type}`);
-        console.log(`   ${scriptTrackingResult.deviation.message}`);
-      }
-      
-      console.log(`📊 Script progress: ${scriptTrackingResult.scriptState.progress}%`);
-      console.log(`   Current: Section ${scriptTrackingResult.scriptState.currentSection}`);
-    } catch (error) {
-      console.error('❌ Error in script tracking:', error);
+  // Track script using BOTH candidate and recruiter transcripts
+  // Accumulate chunks from both speakers and combine them for better context
+  try {
+    // Add current chunk to history for this speaker
+    const speakerKey = speaker === 'candidate' ? 'candidate' : 'recruiter';
+    scriptChunkHistory[speakerKey].push(transcriptChunk);
+    if (scriptChunkHistory[speakerKey].length > MAX_SCRIPT_HISTORY) {
+      scriptChunkHistory[speakerKey].shift(); // Remove oldest chunk
     }
+    
+    // Combine chunks from both speakers for script tracking
+    const combinedCandidateChunks = scriptChunkHistory.candidate.join(' ').trim();
+    const combinedRecruiterChunks = scriptChunkHistory.recruiter.join(' ').trim();
+    
+    // Combine both speakers' chunks with speaker labels for context
+    let combinedChunk = '';
+    if (combinedCandidateChunks && combinedRecruiterChunks) {
+      combinedChunk = `[CANDIDATE] ${combinedCandidateChunks} [RECRUITER] ${combinedRecruiterChunks}`;
+    } else if (combinedCandidateChunks) {
+      combinedChunk = `[CANDIDATE] ${combinedCandidateChunks}`;
+    } else if (combinedRecruiterChunks) {
+      combinedChunk = `[RECRUITER] ${combinedRecruiterChunks}`;
+    } else {
+      combinedChunk = transcriptChunk; // Fallback to current chunk only
+    }
+    
+    console.log(`📋 Running script tracking for ${speaker}...`);
+    console.log(`   Current chunk: "${transcriptChunk.substring(0, 100)}${transcriptChunk.length > 100 ? '...' : ''}"`);
+    console.log(`   Combined context (${scriptChunkHistory.candidate.length} candidate + ${scriptChunkHistory.recruiter.length} recruiter chunks): "${combinedChunk.substring(0, 150)}${combinedChunk.length > 150 ? '...' : ''}"`);
+    const startTime = Date.now();
+    
+    scriptTrackingResult = await processScriptChunk(combinedChunk);
+    
+    const elapsed = Date.now() - startTime;
+    console.log(`⏱️  Script tracking took ${elapsed}ms`);
+    
+    if (scriptTrackingResult.deviation.deviation) {
+      console.log(`⚠️  Script deviation: ${scriptTrackingResult.deviation.type}`);
+      console.log(`   ${scriptTrackingResult.deviation.message}`);
+    }
+    
+    console.log(`📊 Script progress: ${scriptTrackingResult.scriptState.progress}%`);
+    console.log(`   Current: Section ${scriptTrackingResult.scriptState.currentSection}, Subsection: ${scriptTrackingResult.scriptState.currentSubsection}`);
+    console.log(`   Completed sections:`, Object.keys(scriptTrackingResult.scriptState.completedSections).filter(id => scriptTrackingResult.scriptState.completedSections[id]));
+    console.log(`   Completed subsections:`, Object.keys(scriptTrackingResult.scriptState.completedSubsections).filter(id => scriptTrackingResult.scriptState.completedSubsections[id]));
+  } catch (error) {
+    console.error('❌ Error in script tracking:', error);
+    console.error('   Stack:', error.stack);
   }
   
   // ============================================
@@ -192,6 +227,10 @@ export function resetState() {
   culturalFitScore = 50;
   recentContext = [];
   chunkCounter = 0;
+  scriptChunkHistory = {
+    candidate: [],
+    recruiter: []
+  };
   resetFacts();
   resetScriptTracker();
   console.log('🔄 All states reset for new interview');
