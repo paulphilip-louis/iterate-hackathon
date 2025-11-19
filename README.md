@@ -6,12 +6,6 @@
 
 ---
 
-## Demo Video
-
-![Click](docs/screenshots/home.png)
-
----
-
 ## Prerequisites
 - Docker and Docker Compose
 - Google Chrome (for the extension)
